@@ -216,6 +216,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Node / Astro
+node_modules/
+dist/
+.astro/
+
+# Supabase local state
+supabase/.branches
+supabase/.temp
+
 # Agentic Configuration
 .agents
 .codex
