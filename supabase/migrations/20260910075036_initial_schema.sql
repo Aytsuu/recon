@@ -1,0 +1,2 @@
+-- Initial schema placeholder.
+-- Add tables, extensions, and RLS policies in follow-up migrations.
