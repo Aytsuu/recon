@@ -17,20 +17,20 @@ owns those areas.
 
 ### A1. Establish the API contract and test seam
 
-- [ ] **Complete:** Add Pydantic request and response models matching the shared
+- [x] **Complete:** Add Pydantic request and response models matching the shared
   `Case` payload, clarification payload, draft payload, and endpoint requests.
-  - [ ] **Verify:** API-schema tests accept the shared JSON fixtures and reject
+  - [x] **Verify:** API-schema tests accept the shared JSON fixtures and reject
     malformed state, blank typed input, and invalid clarification answers.
 
-- [ ] **Complete:** Add route modules for cases, transcription, extraction,
+- [x] **Complete:** Add route modules for cases, transcription, extraction,
   clarifications, and drafts under `ai_engine/app/api/routes/`.
-  - [ ] **Verify:** Each route is registered under `/api`, returns the agreed
+  - [x] **Verify:** Each route is registered under `/api`, returns the agreed
     response shape, and leaves `GET /health` unchanged.
 
-- [ ] **Complete:** Define a small `CaseRepository` interface for create, load,
+- [x] **Complete:** Define a small `CaseRepository` interface for create, load,
   update, clarification, draft, and delete operations.
-  - [ ] **Verify:** Route tests pass against an in-memory implementation before
-    the Supabase-backed implementation exists.
+  - [x] **Verify:** Repository contract tests pass against an in-memory
+    implementation before the Supabase-backed implementation exists.
 
 ### A2. Implement the case state machine
 
