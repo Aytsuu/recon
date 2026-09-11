@@ -1,0 +1,24 @@
+{
+  "id": 3,
+  "input_mode": "typed",
+  "status": "clarifying",
+  "case_text": "My internet keeps disconnecting.",
+  "language_code": "en",
+  "provider_name": null,
+  "service_name": "Residential fiber internet",
+  "issue_category": "internet_connectivity",
+  "problem_summary": "Intermittent internet connection.",
+  "attempted_resolutions": ["Restarted the router"],
+  "desired_outcome": null,
+  "clarifications": [
+    {
+      "id": 10,
+      "field_key": "provider_name",
+      "question": "Which provider are you contacting?",
+      "answer": null,
+      "status": "pending",
+      "position": 1
+    }
+  ],
+  "draft": null
+}

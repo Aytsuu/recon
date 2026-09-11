@@ -1,0 +1,15 @@
+{
+  "id": 2,
+  "input_mode": "voice",
+  "status": "transcribing",
+  "case_text": null,
+  "language_code": null,
+  "provider_name": null,
+  "service_name": null,
+  "issue_category": null,
+  "problem_summary": null,
+  "attempted_resolutions": [],
+  "desired_outcome": null,
+  "clarifications": [],
+  "draft": null
+}
