@@ -34,18 +34,18 @@ owns those areas.
 
 ### A2. Implement the case state machine
 
-- [ ] **Complete:** Implement typed case creation as `input_ready` and empty
+- [x] **Complete:** Implement typed case creation as `input_ready` and empty
   voice case creation as `transcribing`.
-  - [ ] **Verify:** API tests prove the two creation modes return the expected
+  - [x] **Verify:** API tests prove the two creation modes return the expected
     state and reject invalid combinations of mode, status, and `case_text`.
 
-- [ ] **Complete:** Implement case updates for reviewed `case_text`, provider,
+- [x] **Complete:** Implement case updates for reviewed `case_text`, provider,
   service, category, summary, attempted resolutions, and desired outcome.
-  - [ ] **Verify:** A material edit removes the existing draft and returns a
+  - [x] **Verify:** A material edit removes the existing draft and returns a
     case to `input_ready` or `ready_for_draft` as required by the shared plan.
 
-- [ ] **Complete:** Implement clarification answers and skipped questions.
-  - [ ] **Verify:** A case cannot become `ready_for_draft` while a required
+- [x] **Complete:** Implement clarification answers and skipped questions.
+  - [x] **Verify:** A case cannot become `ready_for_draft` while a required
     clarification remains pending.
 
 ### A3. Add the AssemblyAI boundary

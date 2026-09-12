@@ -14,6 +14,8 @@ class CreateCaseRequest(BaseModel):
 
     input_mode: InputMode
     case_text: str | None = None
+    language_code: str | None = None
+    provider_name: str | None = None
 
     @model_validator(mode="after")
     def validate_case_text(self) -> Self:

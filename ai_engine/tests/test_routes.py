@@ -14,21 +14,13 @@ REGISTERED_API_ROUTES = [
     ("PATCH", "/api/cases/{case_id}/draft"),
 ]
 
-API_ROUTES = [
-    ("POST", "/api/cases", {"json": {"input_mode": "typed", "case_text": "Problem"}}),
-    ("GET", "/api/cases/1", {}),
-    ("PATCH", "/api/cases/1", {"json": {"case_text": "Updated problem"}}),
+DEFERRED_API_ROUTES = [
     (
         "POST",
         "/api/cases/1/transcribe",
         {"files": {"audio": ("sample.webm", b"audio-bytes", "audio/webm")}},
     ),
     ("POST", "/api/cases/1/extract", {}),
-    (
-        "PATCH",
-        "/api/cases/1/clarifications/10",
-        {"json": {"status": "answered", "answer": "Converge ICT"}},
-    ),
     ("POST", "/api/cases/1/draft", {}),
     (
         "PATCH",
@@ -64,8 +56,8 @@ def test_all_api_routes_are_registered(client: TestClient) -> None:
         assert (method, path) in registered_paths
 
 
-@pytest.mark.parametrize("method,path,kwargs", API_ROUTES)
-def test_api_route_returns_not_implemented_envelope(
+@pytest.mark.parametrize("method,path,kwargs", DEFERRED_API_ROUTES)
+def test_deferred_api_route_returns_not_implemented_envelope(
     client: TestClient,
     method: str,
     path: str,
