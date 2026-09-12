@@ -9,7 +9,6 @@ from app.schemas.enums import (
     ClarificationStatus,
     InputMode,
 )
-from app.schemas.envelopes import NOT_IMPLEMENTED_CODE, NOT_IMPLEMENTED_MESSAGE
 
 CASE_NOT_FOUND = {
     "error": {
@@ -22,13 +21,6 @@ CLARIFICATION_NOT_FOUND = {
     "error": {
         "code": "clarification_not_found",
         "message": "Clarification not found.",
-    }
-}
-
-NOT_IMPLEMENTED = {
-    "error": {
-        "code": NOT_IMPLEMENTED_CODE,
-        "message": NOT_IMPLEMENTED_MESSAGE,
     }
 }
 
@@ -319,25 +311,3 @@ def test_unknown_clarification_returns_not_found(
 
     assert response.status_code == 404
     assert response.json() == CLARIFICATION_NOT_FOUND
-
-
-def test_deferred_routes_still_return_not_implemented(client: TestClient) -> None:
-    created = client.post(
-        "/api/cases",
-        json={"input_mode": "typed", "case_text": "Problem"},
-    ).json()["data"]
-
-    deferred_routes = [
-        ("POST", f"/api/cases/{created['id']}/extract", {}),
-        ("POST", f"/api/cases/{created['id']}/draft", {}),
-        (
-            "PATCH",
-            f"/api/cases/{created['id']}/draft",
-            {"json": {"subject": "Subject", "body": "Body"}},
-        ),
-    ]
-
-    for method, path, kwargs in deferred_routes:
-        response = client.request(method, path, **kwargs)
-        assert response.status_code == 501
-        assert response.json() == NOT_IMPLEMENTED

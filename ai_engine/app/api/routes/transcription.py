@@ -33,7 +33,9 @@ async def issue_transcription_token(
         return case_not_found_response()
 
     if case.input_mode != InputMode.voice or case.status != CaseStatus.transcribing:
-        return invalid_case_state_response()
+        return invalid_case_state_response(
+            "Streaming tokens are only available for voice cases in transcribing status."
+        )
 
     try:
         result = await streaming_token_service.issue_token(DEFAULT_TOKEN_EXPIRES_IN_SECONDS)

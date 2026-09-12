@@ -48,13 +48,27 @@ def case_success_response(case: CaseData, status_code: int = 200) -> JSONRespons
     )
 
 
-def invalid_case_state_response() -> JSONResponse:
+def invalid_case_state_response(
+    message: str = "The case is not in a valid state for this operation.",
+) -> JSONResponse:
     return JSONResponse(
         status_code=409,
         content={
             "error": {
                 "code": "invalid_case_state",
-                "message": "Streaming tokens are only available for voice cases in transcribing status.",
+                "message": message,
+            }
+        },
+    )
+
+
+def draft_not_found_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": {
+                "code": "draft_not_found",
+                "message": "Draft not found.",
             }
         },
     )

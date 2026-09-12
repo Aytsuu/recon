@@ -107,26 +107,26 @@ events. Reviewed transcript text is persisted only via the existing
 
 ### A4. Extract, clarify, and draft
 
-- [ ] **Complete:** Define a `CaseIntelligenceService` interface that returns
+- [x] **Complete:** Define a `CaseIntelligenceService` interface that returns
   provider, service, issue category, summary, attempted resolutions, desired
   outcome, and missing fields from `case_text`.
-  - [ ] **Verify:** Fixture tests cover the Converge connectivity example and
+  - [x] **Verify:** Fixture tests cover the Converge connectivity example and
     one incomplete case that requires clarification.
 
-- [ ] **Complete:** Implement the first extraction adapter. It may be a simple
+- [x] **Complete:** Implement the first extraction adapter. It may be a simple
   deterministic implementation or the selected model provider, but it must
   validate its result through the Pydantic case model.
-  - [ ] **Verify:** Extraction produces `clarifying` only when one of the three
+  - [x] **Verify:** Extraction produces `clarifying` only when one of the three
     MVP clarification fields is absent; otherwise it produces `ready_for_draft`.
 
-- [ ] **Complete:** Generate one factual `support_draft` only when the case is
+- [x] **Complete:** Generate one factual `support_draft` only when the case is
   ready for drafting.
-  - [ ] **Verify:** Draft tests confirm that known case details appear in the
+  - [x] **Verify:** Draft tests confirm that known case details appear in the
     subject/body and blank required details prevent generation.
 
-- [ ] **Complete:** Support user edits to the draft without adding sending or
+- [x] **Complete:** Support user edits to the draft without adding sending or
   provider-integration behavior.
-  - [ ] **Verify:** Updating the draft returns `draft_ready` and persists the
+  - [x] **Verify:** Updating the draft returns `draft_ready` and persists the
     edited subject and body through the repository.
 
 ### A5. Integrate Supabase persistence

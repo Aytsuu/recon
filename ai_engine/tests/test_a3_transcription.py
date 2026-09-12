@@ -129,32 +129,6 @@ def test_token_provider_failure_returns_502(
     assert response.json() == TOKEN_ISSUANCE_FAILED
 
 
-def test_deferred_extract_and_draft_routes_still_return_501(client: TestClient) -> None:
-    created = _create_voice_case(client)
-
-    deferred_routes = [
-        ("POST", f"/api/cases/{created['id']}/extract", {}),
-        ("POST", f"/api/cases/{created['id']}/draft", {}),
-        (
-            "PATCH",
-            f"/api/cases/{created['id']}/draft",
-            {"json": {"subject": "Subject", "body": "Body"}},
-        ),
-    ]
-
-    not_implemented = {
-        "error": {
-            "code": "not_implemented",
-            "message": "This endpoint is reserved for a later implementation phase.",
-        }
-    }
-
-    for method, path, kwargs in deferred_routes:
-        response = client.request(method, path, **kwargs)
-        assert response.status_code == 501
-        assert response.json() == not_implemented
-
-
 def test_get_streaming_token_service_uses_fake_without_api_key() -> None:
     get_settings.cache_clear()
     with patch.dict(os.environ, {"AI_ENGINE_ASSEMBLYAI_API_KEY": ""}, clear=False):

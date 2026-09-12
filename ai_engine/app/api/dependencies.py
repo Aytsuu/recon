@@ -1,5 +1,6 @@
 from app.core.config import get_settings
 from app.repositories.memory import InMemoryCaseRepository
+from app.services.intelligence import CaseIntelligenceService, RuleBasedCaseIntelligenceService
 from app.services.transcription import (
     AssemblyAIStreamingTokenService,
     FakeStreamingTokenService,
@@ -27,3 +28,7 @@ def get_streaming_token_service() -> StreamingTokenService:
     if settings.assemblyai_api_key:
         return AssemblyAIStreamingTokenService(api_key=settings.assemblyai_api_key)
     return FakeStreamingTokenService()
+
+
+def get_case_intelligence_service() -> CaseIntelligenceService:
+    return RuleBasedCaseIntelligenceService()
