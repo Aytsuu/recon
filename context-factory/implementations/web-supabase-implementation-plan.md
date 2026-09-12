@@ -146,15 +146,40 @@ more indexes yet.
 
 ### B3. Add voice input after the typed flow works
 
-- [ ] **Complete:** Add a small browser recorder with start, stop,
-  permission-denied, and typed-fallback states.
-  - [ ] **Verify:** A browser test or repeatable manual test covers all four
-    states without requiring a real AssemblyAI request.
+> **Scope correction (2026-09-12):** The original B3 description assumed a
+> "record audio blob → POST to `/transcribe`" flow. Verification found the
+> project uses AssemblyAI realtime streaming STT, not pre-recorded upload-and-
+> poll. B3 is revised to match the realtime streaming design. The AI Engine
+> only issues a short-lived token (A3); the browser owns the WebSocket session.
 
-- [ ] **Complete:** Send the recorded audio to Person A's transcription endpoint
-  and display the returned `case_text` for user editing.
-  - [ ] **Verify:** A mocked API response takes a voice case from
-    `transcribing` to reviewed `input_ready` text in the UI.
+- [ ] **Complete:** Add a browser recorder with start, stop, permission-denied,
+  and typed-fallback states. Capture live microphone audio as mono 16-bit PCM
+  (default) or Opus frames according to the configured encoding.
+  - [ ] **Verify:** A repeatable manual or browser test covers all four recorder
+    states without requiring a real AssemblyAI key.
+
+- [ ] **Complete:** On recording start, fetch a short-lived token from
+  `POST /api/cases/{case_id}/transcription-token`. Open a WebSocket to
+  `wss://streaming.assemblyai.com/v3/ws?token=<token>&sample_rate=…&encoding=…`.
+  Send audio frames as binary WebSocket messages. Never expose the permanent
+  API key in browser code or URLs.
+  - [ ] **Verify:** A mocked token response and mocked WebSocket confirm the
+    connection is opened with the correct URL parameters and that no key value
+    appears in client-side code.
+
+- [ ] **Complete:** Handle incoming AssemblyAI `Turn` events: render interim
+  turns as live preview text. When `end_of_turn: true` arrives, append the
+  finalized text to the editable review area. On recording stop, send
+  `{"type":"Terminate"}` and close the socket.
+  - [ ] **Verify:** A simulated event sequence (interim → final → Terminate)
+    produces the expected editable review text without a live API call.
+
+- [ ] **Complete:** After streaming ends, display the accumulated finalized
+  turns as editable review text and send the user-reviewed text through the
+  existing `PATCH /api/cases/{case_id}` to persist `case_text` and advance
+  the voice case from `transcribing` to `input_ready`.
+  - [ ] **Verify:** The mocked PATCH request carries the exact reviewed text
+    and the UI reflects the resulting `input_ready` case state.
 
 ### B4. Connect and polish
 

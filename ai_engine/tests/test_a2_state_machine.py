@@ -328,11 +328,6 @@ def test_deferred_routes_still_return_not_implemented(client: TestClient) -> Non
     ).json()["data"]
 
     deferred_routes = [
-        (
-            "POST",
-            f"/api/cases/{created['id']}/transcribe",
-            {"files": {"audio": ("a.webm", b"x", "audio/webm")}},
-        ),
         ("POST", f"/api/cases/{created['id']}/extract", {}),
         ("POST", f"/api/cases/{created['id']}/draft", {}),
         (

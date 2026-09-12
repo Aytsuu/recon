@@ -7,7 +7,7 @@ REGISTERED_API_ROUTES = [
     ("POST", "/api/cases"),
     ("GET", "/api/cases/{case_id}"),
     ("PATCH", "/api/cases/{case_id}"),
-    ("POST", "/api/cases/{case_id}/transcribe"),
+    ("POST", "/api/cases/{case_id}/transcription-token"),
     ("POST", "/api/cases/{case_id}/extract"),
     ("PATCH", "/api/cases/{case_id}/clarifications/{clarification_id}"),
     ("POST", "/api/cases/{case_id}/draft"),
@@ -15,11 +15,6 @@ REGISTERED_API_ROUTES = [
 ]
 
 DEFERRED_API_ROUTES = [
-    (
-        "POST",
-        "/api/cases/1/transcribe",
-        {"files": {"audio": ("sample.webm", b"audio-bytes", "audio/webm")}},
-    ),
     ("POST", "/api/cases/1/extract", {}),
     ("POST", "/api/cases/1/draft", {}),
     (

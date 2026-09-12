@@ -22,6 +22,8 @@ class Settings(BaseSettings):
         ]
     )
 
+    assemblyai_api_key: str | None = None
+
     supabase_url: str | None = Field(default=None, validation_alias="SUPABASE_URL")
     supabase_service_role_key: str | None = Field(
         default=None,

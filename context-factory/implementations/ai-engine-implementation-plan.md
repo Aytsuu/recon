@@ -48,30 +48,62 @@ owns those areas.
   - [x] **Verify:** A case cannot become `ready_for_draft` while a required
     clarification remains pending.
 
-### A3. Add the AssemblyAI boundary
+### A3. Add the AssemblyAI streaming token boundary
 
-- [ ] **Complete:** Define a `TranscriptionService` interface and a fake
-  implementation for route and integration tests.
-  - [ ] **Verify:** Tests can produce a deterministic transcript without an
-    AssemblyAI credential or network call.
+> **Scope correction (2026-09-12):** The original A3 description was written
+> for a pre-recorded upload-and-poll adapter. Verification found this design is
+> incompatible with the project's realtime streaming STT approach. A3 is
+> revised to a narrowly-scoped server-side token issuer. The uncommitted
+> upload-and-poll code is superseded by this description. Browser WebSocket
+> streaming and Turn handling belong to B3.
 
-- [ ] **Complete:** Implement the AssemblyAI adapter behind that interface.
-  The adapter receives audio from the transcription endpoint and returns text
-  for the current MVP flow.
-  - [ ] **Verify:** A mocked provider test covers success, empty transcript,
-    and provider failure; none changes the public API response shape.
+- [x] **Complete:** Replace the A1 `501` stub at
+  `POST /api/cases/{case_id}/transcription-token` with a token-issuance
+  endpoint that issues a short-lived AssemblyAI streaming token for a voice
+  case in `transcribing` status.
+  - [x] **Verify:** Route returns `404 case_not_found` for an unknown case,
+    `409 invalid_case_state` for a typed or non-transcribing case, and a
+    `200` success envelope on a valid request. The case status and `case_text`
+    are unchanged after the call.
 
-- [ ] **Complete:** Add `AI_ENGINE_ASSEMBLYAI_API_KEY` to
-  `ai_engine/.env.example` and configuration, with the fake transcriber used
-  whenever the real adapter is not configured.
-  - [ ] **Verify:** The normal test suite runs without the key, while an
-    opt-in local smoke test can use the real adapter without exposing its key to
-    the Astro application.
+- [x] **Complete:** Define a `StreamingTokenService` protocol with an
+  `issue_token(expires_in_seconds)` method returning a `StreamingTokenResult`
+  (`token`, `expires_in_seconds`). Provide a deterministic
+  `FakeStreamingTokenService` that requires no key and no network call.
+  - [x] **Verify:** Tests override the dependency with the fake and assert the
+    exact token envelope; the normal suite passes offline.
 
-- [ ] **Complete:** Save the user-reviewed transcription as `case_text` rather
-  than persisting raw provider events or transcript history.
-  - [ ] **Verify:** A corrected transcript is the exact text supplied to the
-    extraction service.
+- [x] **Complete:** Implement an `AssemblyAIStreamingTokenService` that calls
+  `GET https://streaming.assemblyai.com/v3/token?expires_in_seconds=60`
+  with header `authorization: <key>` (no `Bearer` prefix) and returns the
+  token. Return `502 token_issuance_failed` or `503 token_service_unavailable`
+  on failure; never expose the key in a response or log.
+  - [x] **Verify:** Unit tests use an injected mock HTTP client to cover
+    success and transport failure without making real requests.
+
+- [x] **Complete:** Add `AI_ENGINE_ASSEMBLYAI_API_KEY=` to `.env.example` and
+  config. Use the fake when the key is absent; use the real adapter when it is
+  set.
+  - [x] **Verify:** Dependency-selection test confirms no-key → fake and
+    key-set → AssemblyAI adapter. No opt-in audio file is needed because this
+    endpoint only issues a token.
+
+Token success response shape:
+
+```json
+{
+  "data": {
+    "case_id": 123,
+    "token": "<short-lived-token>",
+    "expires_in_seconds": 60,
+    "ws_url": "wss://streaming.assemblyai.com/v3/ws"
+  }
+}
+```
+
+The AI Engine does not open the WebSocket, stream audio, or process Turn
+events. Reviewed transcript text is persisted only via the existing
+`PATCH /api/cases/{case_id}` flow (unchanged from A2).
 
 ### A4. Extract, clarify, and draft
 
@@ -126,6 +158,6 @@ Provide Person B with:
 
 Person A's track is ready for integration when the API can complete the full
 typed flow against the in-memory repository, then repeat it against Person B's
-local Supabase schema without changing the public contract. The voice endpoint
-must also work with the fake transcription service before the real AssemblyAI
-adapter is connected.
+local Supabase schema without changing the public contract. The token endpoint
+must issue a valid short-lived token using the fake service before the real
+AssemblyAI adapter is connected.
