@@ -1,0 +1,14 @@
+---
+import type { CaseStatus } from '../lib/types.js';
+
+interface Props {
+  status: CaseStatus;
+}
+
+const { status } = Astro.props;
+const displayStatus = status ? status.replace(/_/g, ' ') : '';
+---
+
+<span class={`badge badge-${status}`}>
+  {displayStatus}
+</span>

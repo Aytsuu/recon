@@ -1,0 +1,250 @@
+---
+/**
+ * Case review page — /cases/[id]
+ * Shows the current case text, extracted fields, clarification questions,
+ * and current status badge. Handles all case states from the shared contract.
+ *
+ * Implements:
+ * - context-factory/frameworks/astro/01-project-shape.md
+ * - context-factory/frameworks/astro/02-routing-pages.md (getStaticPaths, param validation)
+ * - context-factory/frameworks/astro/03-rendering-model.md
+ */
+import Layout from '../../layouts/Layout.astro';
+import { getCase } from '../../data/index.js';
+
+export async function getStaticPaths() {
+  return [
+    { params: { id: '1' } },
+    { params: { id: '2' } },
+    { params: { id: '3' } },
+    { params: { id: '4' } },
+  ];
+}
+
+const { id } = Astro.params;
+const caseId = Number(id);
+
+if (isNaN(caseId)) {
+  return Astro.redirect('/');
+}
+
+// Initial case load for prerender / SSR
+let initialCase = null;
+try {
+  const res = await getCase(caseId);
+  initialCase = res.data;
+} catch {
+  // If fetching fails at build time, will hydrate on client
+}
+---
+
+<Layout title={`Recon – Case #${caseId}`}>
+  <a class="back" href="/">← New case</a>
+
+  <div id="case-root" data-case-id={caseId} data-initial-case={initialCase ? JSON.stringify(initialCase) : null}>
+    <p class="loading">Loading case…</p>
+  </div>
+
+  <script>
+    import {
+      getCase,
+      patchCase,
+      extractCase,
+      generateDraft,
+      patchClarification,
+    } from '../../data/index.js';
+    import type { SupportCase, CaseClarification } from '../../data/index.js';
+
+    const rootEl = document.getElementById('case-root');
+    const caseId = Number(rootEl?.dataset.caseId);
+    const initialCaseRaw = rootEl?.dataset.initialCase;
+
+    function statusBadge(status: string) {
+      return `<span class="badge badge-${status}">${status.replace(/_/g, ' ')}</span>`;
+    }
+
+    function fieldBlock(label: string, value: string | string[] | null | undefined) {
+      const isEmpty = value === null || value === undefined || (Array.isArray(value) && value.length === 0);
+      const display = Array.isArray(value)
+        ? (value.length > 0 ? value.map(v => `<li>${v}</li>`).join('') : null)
+        : value;
+      return `
+        <div class="field-group">
+          <div class="field-label">${label}</div>
+          ${isEmpty
+            ? `<div class="field-value missing">Not provided</div>`
+            : Array.isArray(value)
+              ? `<ul class="field-value">${display}</ul>`
+              : `<div class="field-value">${display}</div>`
+          }
+        </div>`;
+    }
+
+    function clarificationItem(c: CaseClarification, cid: number) {
+      const answered = c.status === 'answered';
+      const skipped = c.status === 'skipped';
+      return `
+        <li class="clarification-item" id="clar-${c.id}">
+          <div class="clarification-q">${c.position}. ${c.question}</div>
+          ${answered
+            ? `<div class="field-value">${c.answer}</div>
+               <div class="clarification-meta">✅ Answered</div>`
+            : skipped
+            ? `<div class="clarification-meta">⏭️ Skipped</div>`
+            : `<input type="text" id="ans-${c.id}" placeholder="Your answer…"
+                 style="width:100%;padding:0.45rem 0.6rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;margin:0.4rem 0;">
+               <div class="btn-row">
+                 <button class="btn btn-primary" data-action="answer" data-cid="${cid}" data-clar-id="${c.id}">Answer</button>
+                 <button class="btn btn-secondary" data-action="skip" data-cid="${cid}" data-clar-id="${c.id}">Skip</button>
+               </div>`
+          }
+        </li>`;
+    }
+
+    function renderCase(c: SupportCase) {
+      const hasDraft = Boolean(c.draft);
+      const pendingClarifications = c.clarifications.filter(q => q.status === 'pending');
+
+      return `
+        <h1>Case #${c.id}</h1>
+        ${statusBadge(c.status)}
+
+        <section>
+          <h2>Problem description</h2>
+          ${c.case_text
+            ? `<textarea class="edit-area" id="case-text-edit">${c.case_text}</textarea>
+               <div class="btn-row">
+                 <button class="btn btn-secondary" data-action="save-text" data-cid="${c.id}">Save text</button>
+               </div>`
+            : `<p class="field-value missing">Awaiting transcription…</p>`
+          }
+        </section>
+
+        <section>
+          <h2>Extracted details</h2>
+          ${fieldBlock('Provider', c.provider_name)}
+          ${fieldBlock('Service', c.service_name)}
+          ${fieldBlock('Issue category', c.issue_category)}
+          ${fieldBlock('Problem summary', c.problem_summary)}
+          ${fieldBlock('Attempted resolutions', c.attempted_resolutions)}
+          ${fieldBlock('Desired outcome', c.desired_outcome)}
+        </section>
+
+        ${c.clarifications.length > 0 ? `
+        <section>
+          <h2>Clarifying questions (${c.clarifications.length})</h2>
+          <ul class="clarification-list">
+            ${c.clarifications.map(q => clarificationItem(q, c.id)).join('')}
+          </ul>
+        </section>` : ''}
+
+        <div class="action-bar">
+          ${c.status === 'input_ready' || c.status === 'ready_for_draft'
+            ? `<button class="btn btn-primary" data-action="extract" data-cid="${c.id}">Extract &amp; analyse →</button>`
+            : ''
+          }
+          ${(c.status === 'ready_for_draft' || (c.status === 'clarifying' && pendingClarifications.length === 0))
+            ? `<button class="btn btn-primary" data-action="generate-draft" data-cid="${c.id}">Generate draft →</button>`
+            : ''
+          }
+          ${hasDraft
+            ? `<a href="/cases/${c.id}/draft" class="btn btn-primary" style="text-decoration:none">View draft →</a>`
+            : ''
+          }
+        </div>
+        <div id="action-error" class="error-msg"></div>`;
+    }
+
+    function setActionError(msg: string) {
+      const el = document.getElementById('action-error');
+      if (el) {
+        el.textContent = msg;
+        el.classList.toggle('visible', Boolean(msg));
+      }
+    }
+
+    async function loadAndRender(cid: number) {
+      if (!rootEl) return;
+      try {
+        const res = await getCase(cid);
+        rootEl.innerHTML = renderCase(res.data);
+        attachEventListeners();
+      } catch (err) {
+        rootEl.innerHTML = `<p style="color:#dc2626">Failed to load case: ${err instanceof Error ? err.message : String(err)}</p>`;
+      }
+    }
+
+    function attachEventListeners() {
+      if (!rootEl) return;
+
+      rootEl.querySelectorAll('[data-action]').forEach((el) => {
+        el.addEventListener('click', async (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const action = target.dataset.action;
+          const cid = Number(target.dataset.cid);
+
+          if (action === 'save-text') {
+            const text = (document.getElementById('case-text-edit') as HTMLTextAreaElement | null)?.value.trim();
+            if (!text) return;
+            try {
+              await patchCase(cid, { case_text: text });
+              await loadAndRender(cid);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : String(err));
+            }
+          } else if (action === 'extract') {
+            setActionError('');
+            try {
+              await extractCase(cid);
+              await loadAndRender(cid);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : String(err));
+            }
+          } else if (action === 'generate-draft') {
+            setActionError('');
+            try {
+              await generateDraft(cid);
+              window.location.href = `/cases/${cid}/draft`;
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : String(err));
+            }
+          } else if (action === 'answer') {
+            const clarId = Number(target.dataset.clarId);
+            const input = document.getElementById(`ans-${clarId}`) as HTMLInputElement | null;
+            const answer = input?.value.trim();
+            if (!answer) return;
+            try {
+              await patchClarification(cid, clarId, { answer, status: 'answered' });
+              await loadAndRender(cid);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : String(err));
+            }
+          } else if (action === 'skip') {
+            const clarId = Number(target.dataset.clarId);
+            try {
+              await patchClarification(cid, clarId, { status: 'skipped' });
+              await loadAndRender(cid);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : String(err));
+            }
+          }
+        });
+      });
+    }
+
+    // Bootstrap
+    if (initialCaseRaw) {
+      try {
+        const initialCase = JSON.parse(initialCaseRaw);
+        if (rootEl) {
+          rootEl.innerHTML = renderCase(initialCase);
+          attachEventListeners();
+        }
+      } catch {
+        loadAndRender(caseId);
+      }
+    } else {
+      loadAndRender(caseId);
+    }
+  </script>
+</Layout>

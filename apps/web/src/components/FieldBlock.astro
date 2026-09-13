@@ -1,0 +1,26 @@
+---
+interface Props {
+  label: string;
+  value: string | string[] | null | undefined;
+}
+
+const { label, value } = Astro.props;
+const isEmpty = value === null || value === undefined || (Array.isArray(value) && value.length === 0);
+---
+
+<div class="field-group">
+  <div class="field-label">{label}</div>
+  {
+    isEmpty ? (
+      <div class="field-value missing">Not provided</div>
+    ) : Array.isArray(value) ? (
+      <ul class="field-value">
+        {value.map((item) => (
+          <li>{item}</li>
+        ))}
+      </ul>
+    ) : (
+      <div class="field-value">{value}</div>
+    )
+  }
+</div>

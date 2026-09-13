@@ -1,0 +1,38 @@
+---
+import type { CaseClarification } from '../lib/types.js';
+
+interface Props {
+  clarification: CaseClarification;
+  caseId: number;
+}
+
+const { clarification, caseId } = Astro.props;
+const { id, question, answer, status, position } = clarification;
+---
+
+<li class="clarification-item" id={`clar-${id}`}>
+  <div class="clarification-q">{position}. {question}</div>
+  {
+    status === 'answered' ? (
+      <>
+        <div class="field-value">{answer}</div>
+        <div class="clarification-meta">✅ Answered</div>
+      </>
+    ) : status === 'skipped' ? (
+      <div class="clarification-meta">⏭️ Skipped</div>
+    ) : (
+      <>
+        <input
+          type="text"
+          id={`ans-${id}`}
+          placeholder="Your answer…"
+          style="width:100%;padding:0.45rem 0.6rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;margin:0.4rem 0;"
+        />
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick={`answerClarification(${caseId},${id},'ans-${id}')`}>Answer</button>
+          <button class="btn btn-secondary" onclick={`skipClarification(${caseId},${id})`}>Skip</button>
+        </div>
+      </>
+    )
+  }
+</li>

@@ -1,0 +1,91 @@
+{
+  "input_ready_typed": {
+    "data": {
+      "id": 1,
+      "input_mode": "typed",
+      "status": "input_ready",
+      "case_text": "My internet keeps disconnecting every few hours. I have already restarted the router twice.",
+      "language_code": "en",
+      "provider_name": "Converge ICT",
+      "service_name": "Residential fiber internet",
+      "issue_category": null,
+      "problem_summary": null,
+      "attempted_resolutions": [],
+      "desired_outcome": null,
+      "clarifications": [],
+      "draft": null
+    }
+  },
+  "clarifying_typed": {
+    "data": {
+      "id": 2,
+      "input_mode": "typed",
+      "status": "clarifying",
+      "case_text": "My bill shows unexpected charges for last month.",
+      "language_code": "en",
+      "provider_name": "Globe Telecom",
+      "service_name": "Postpaid mobile plan",
+      "issue_category": "billing",
+      "problem_summary": "Unexpected charges on monthly bill.",
+      "attempted_resolutions": ["Checked the bill breakdown online"],
+      "desired_outcome": null,
+      "clarifications": [
+        {
+          "id": 1,
+          "field_key": "desired_outcome",
+          "question": "What resolution are you expecting — a refund, a billing adjustment, or an explanation of the charges?",
+          "answer": null,
+          "status": "pending",
+          "position": 1
+        }
+      ],
+      "draft": null
+    }
+  },
+  "draft_ready_typed": {
+    "data": {
+      "id": 3,
+      "input_mode": "typed",
+      "status": "draft_ready",
+      "case_text": "My fiber connection has been dropping for three days. I have restarted the ONT and the router but the issue persists.",
+      "language_code": "en",
+      "provider_name": "PLDT Home",
+      "service_name": "Home Fiber Broadband",
+      "issue_category": "internet_connectivity",
+      "problem_summary": "Persistent fiber connection drops over three days.",
+      "attempted_resolutions": ["Restarted the ONT", "Restarted the router"],
+      "desired_outcome": "Restore stable 24/7 fiber connection or dispatch a technician.",
+      "clarifications": [],
+      "draft": {
+        "id": 1,
+        "subject": "Persistent Fiber Connection Drops – Requesting Technician Dispatch",
+        "body": "Dear PLDT Home Support,\n\nI am writing to report an ongoing internet connectivity issue with my Home Fiber Broadband service that has persisted for three consecutive days.\n\n**Problem:** My fiber connection drops repeatedly throughout the day, making normal work and communication impossible.\n\n**Steps already taken:**\n- Restarted the Optical Network Terminal (ONT)\n- Restarted the router\n\nDespite these steps the disconnections continue. I am requesting either a remote line check or the dispatch of a field technician to diagnose and resolve the issue permanently.\n\nPlease let me know the next steps and an estimated resolution timeline.\n\nThank you for your prompt attention.",
+        "language_code": "en"
+      }
+    }
+  },
+  "voice_transcribing": {
+    "data": {
+      "id": 4,
+      "input_mode": "voice",
+      "status": "transcribing",
+      "case_text": null,
+      "language_code": null,
+      "provider_name": null,
+      "service_name": null,
+      "issue_category": null,
+      "problem_summary": null,
+      "attempted_resolutions": [],
+      "desired_outcome": null,
+      "clarifications": [],
+      "draft": null
+    }
+  },
+  "transcribe_response": {
+    "data": {
+      "case_id": 4,
+      "transcript": "I have been having trouble with my mobile data. It keeps cutting out whenever I am away from Wi-Fi.",
+      "language_code": "en"
+    }
+  }
+}

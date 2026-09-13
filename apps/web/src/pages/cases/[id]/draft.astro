@@ -1,0 +1,174 @@
+---
+/**
+ * Draft review page — /cases/[id]/draft
+ * Shows the editable support draft subject and body.
+ * Allows the user to edit and save, regenerate, or copy to clipboard.
+ *
+ * Implements:
+ * - context-factory/frameworks/astro/01-project-shape.md
+ * - context-factory/frameworks/astro/02-routing-pages.md (getStaticPaths, param validation)
+ * - context-factory/frameworks/astro/03-rendering-model.md
+ */
+import Layout from '../../../layouts/Layout.astro';
+import { getCase } from '../../../data/index.js';
+
+export async function getStaticPaths() {
+  return [
+    { params: { id: '1' } },
+    { params: { id: '2' } },
+    { params: { id: '3' } },
+    { params: { id: '4' } },
+  ];
+}
+
+const { id } = Astro.params;
+const caseId = Number(id);
+
+if (isNaN(caseId)) {
+  return Astro.redirect('/');
+}
+
+// Initial case load for prerender / SSR
+let initialCase = null;
+try {
+  const res = await getCase(caseId);
+  initialCase = res.data;
+} catch {
+  // If fetching fails at build time, will hydrate on client
+}
+---
+
+<Layout title={`Recon – Draft #${caseId}`}>
+  <a class="back" href={`/cases/${caseId}`}>← Back to case</a>
+
+  <div id="draft-root" data-case-id={caseId} data-initial-case={initialCase ? JSON.stringify(initialCase) : null}>
+    <p class="loading">Loading draft…</p>
+  </div>
+
+  <script>
+    import { getCase, patchDraft, generateDraft } from '../../../data/index.js';
+    import type { SupportCase } from '../../../data/index.js';
+
+    const rootEl = document.getElementById('draft-root');
+    const caseId = Number(rootEl?.dataset.caseId);
+    const initialCaseRaw = rootEl?.dataset.initialCase;
+
+    function escHtml(str: string) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderDraft(caseData: SupportCase) {
+      const draft = caseData.draft;
+
+      if (!draft) {
+        return `
+          <h1>Draft</h1>
+          <div class="no-draft">
+            <p>No draft has been generated yet.</p>
+            <a href="/cases/${caseData.id}" class="btn btn-primary" style="text-decoration:none;display:inline-block;margin-top:0.5rem">← Back to case</a>
+          </div>`;
+      }
+
+      return `
+        <h1>Support Draft</h1>
+        <label for="draft-subject">Subject</label>
+        <input type="text" id="draft-subject" value="${escHtml(draft.subject)}" />
+
+        <label for="draft-body">Body</label>
+        <textarea id="draft-body">${escHtml(draft.body)}</textarea>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-save" data-action="save" data-cid="${caseData.id}">Save edits</button>
+          <button class="btn btn-secondary" id="btn-regen" data-action="regen" data-cid="${caseData.id}">Regenerate</button>
+          <button class="btn btn-copy" id="btn-copy" data-action="copy">📋 Copy draft</button>
+        </div>
+        <div id="draft-error" class="error-msg"></div>`;
+    }
+
+    function setDraftError(msg: string) {
+      const el = document.getElementById('draft-error');
+      if (el) {
+        el.textContent = msg;
+        el.classList.toggle('visible', Boolean(msg));
+      }
+    }
+
+    async function loadAndRender(cid: number) {
+      if (!rootEl) return;
+      try {
+        const res = await getCase(cid);
+        rootEl.innerHTML = renderDraft(res.data);
+        attachEventListeners();
+      } catch (err) {
+        rootEl.innerHTML = `<p style="color:#dc2626">Failed to load draft: ${err instanceof Error ? err.message : String(err)}</p>`;
+      }
+    }
+
+    function attachEventListeners() {
+      if (!rootEl) return;
+
+      const saveBtn = rootEl.querySelector('[data-action="save"]');
+      const regenBtn = rootEl.querySelector('[data-action="regen"]');
+      const copyBtn = rootEl.querySelector('[data-action="copy"]');
+
+      saveBtn?.addEventListener('click', async () => {
+        const subject = (document.getElementById('draft-subject') as HTMLInputElement | null)?.value.trim();
+        const body = (document.getElementById('draft-body') as HTMLTextAreaElement | null)?.value.trim();
+        if (!subject || !body) return;
+        try {
+          await patchDraft(caseId, { subject, body });
+          setDraftError('');
+          const originalText = saveBtn.textContent;
+          saveBtn.textContent = 'Saved!';
+          setTimeout(() => {
+            saveBtn.textContent = originalText;
+          }, 1500);
+        } catch (err) {
+          setDraftError(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+      regenBtn?.addEventListener('click', async () => {
+        setDraftError('');
+        try {
+          await generateDraft(caseId);
+          await loadAndRender(caseId);
+        } catch (err) {
+          setDraftError(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+      copyBtn?.addEventListener('click', async () => {
+        const subject = (document.getElementById('draft-subject') as HTMLInputElement | null)?.value ?? '';
+        const body = (document.getElementById('draft-body') as HTMLTextAreaElement | null)?.value ?? '';
+        if (!subject && !body) return;
+        await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+        copyBtn.textContent = '✅ Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = '📋 Copy draft';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    // Bootstrap
+    if (initialCaseRaw) {
+      try {
+        const initialCase = JSON.parse(initialCaseRaw);
+        if (rootEl) {
+          rootEl.innerHTML = renderDraft(initialCase);
+          attachEventListeners();
+        }
+      } catch {
+        loadAndRender(caseId);
+      }
+    } else {
+      loadAndRender(caseId);
+    }
+  </script>
+</Layout>
