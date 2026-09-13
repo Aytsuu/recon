@@ -18,7 +18,7 @@ from app.schemas.enums import CaseStatus, ClarificationFieldKey, InputMode
 from app.services.draft import LLMDraftService, TemplateDraftService
 from app.services.intelligence.llm_based import LLMCaseIntelligenceService
 from app.services.llm.fake import FakeLLMClient
-from app.services.llm.openai_client import OpenAILLMClient
+from app.services.llm.gemini_client import GeminiLLMClient
 
 VALID_EXTRACTION_JSON = json.dumps(
     {
@@ -106,27 +106,41 @@ async def test_llm_draft_service_falls_back_to_template_on_malformed_json(
 
 
 @pytest.mark.asyncio
-async def test_openai_client_uses_bearer_auth_and_parses_response() -> None:
+async def test_gemini_client_sends_correct_request_and_parses_response() -> None:
+    system_prompt = "You are a support case analyst."
+    user_prompt = "My Wi-Fi keeps dropping."
+
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/v1/chat/completions"
-        assert request.headers["authorization"] == "Bearer test-key"
+        assert "/v1beta/models/" in request.url.path
+        assert request.url.path.endswith(":generateContent")
+        assert request.url.params.get("key") == "test-key"
+        body = json.loads(request.content.decode())
+        assert body["systemInstruction"]["parts"][0]["text"] == system_prompt
         return httpx.Response(
             200,
-            json={"choices": [{"message": {"content": '{"provider_name": "Converge ICT"}'}}]},
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [{"text": '{"provider_name": "Converge ICT"}'}],
+                        }
+                    }
+                ]
+            },
         )
 
     transport = httpx.MockTransport(handler)
     client = httpx.AsyncClient(transport=transport)
-    service = OpenAILLMClient(api_key="test-key", model="gpt-4o-mini", client=client)
+    service = GeminiLLMClient(api_key="test-key", model="gemini-1.5-flash", client=client)
 
-    content = await service.complete("system", "prompt")
+    content = await service.complete(system_prompt, user_prompt)
 
     assert content == '{"provider_name": "Converge ICT"}'
 
 
-def test_dependency_selection_without_openai_key() -> None:
+def test_dependency_selection_without_gemini_key() -> None:
     get_settings.cache_clear()
-    with patch.dict(os.environ, {"AI_ENGINE_OPENAI_API_KEY": ""}, clear=False):
+    with patch.dict(os.environ, {"AI_ENGINE_GEMINI_API_KEY": ""}, clear=False):
         get_settings.cache_clear()
         from app.api.dependencies import get_case_intelligence_service, get_draft_service
 
@@ -137,9 +151,9 @@ def test_dependency_selection_without_openai_key() -> None:
         assert isinstance(draft, TemplateDraftService)
 
 
-def test_dependency_selection_with_openai_key() -> None:
+def test_dependency_selection_with_gemini_key() -> None:
     get_settings.cache_clear()
-    with patch.dict(os.environ, {"AI_ENGINE_OPENAI_API_KEY": "test-key"}, clear=False):
+    with patch.dict(os.environ, {"AI_ENGINE_GEMINI_API_KEY": "test-key"}, clear=False):
         get_settings.cache_clear()
         from app.api.dependencies import get_case_intelligence_service, get_draft_service
 
