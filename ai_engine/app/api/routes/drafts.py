@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_case_repository
+from app.api.dependencies import get_case_repository, get_draft_service
 from app.api.responses import (
     case_not_found_response,
     case_success_response,
@@ -12,15 +12,16 @@ from app.api.responses import (
 from app.repositories.memory import InMemoryCaseRepository
 from app.schemas.enums import CaseStatus
 from app.schemas.requests import UpdateDraftRequest
-from app.services.draft import compose_draft
+from app.services.draft import DraftService
 
 router = APIRouter(tags=["drafts"])
 
 
 @router.post("/cases/{case_id}/draft")
-def generate_draft(
+async def generate_draft(
     case_id: int,
     repository: Annotated[InMemoryCaseRepository, Depends(get_case_repository)],
+    draft_service: Annotated[DraftService, Depends(get_draft_service)],
 ):
     case = repository.get_case(case_id)
     if case is None:
@@ -31,7 +32,7 @@ def generate_draft(
             "Draft generation is only available for cases in ready_for_draft status."
         )
 
-    draft = compose_draft(case)
+    draft = await draft_service.compose(case)
     repository.save_draft(case_id, draft)
     updated = repository.update_case(case_id, status=CaseStatus.draft_ready)
     return case_success_response(updated)

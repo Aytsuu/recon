@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     )
 
     assemblyai_api_key: str | None = None
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
 
     supabase_url: str | None = Field(default=None, validation_alias="SUPABASE_URL")
     supabase_service_role_key: str | None = Field(
