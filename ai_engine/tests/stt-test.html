@@ -320,6 +320,19 @@
           `Issue category: ${caseData.issue_category || "(pending)"}`,
         ];
 
+        if (caseData.provider_name) {
+          const hasContact =
+            caseData.support_email || caseData.support_phone || caseData.support_url;
+          if (hasContact) {
+            lines.push("", "Support contact:");
+            if (caseData.support_email) lines.push(`  Email: ${caseData.support_email}`);
+            if (caseData.support_phone) lines.push(`  Phone: ${caseData.support_phone}`);
+            if (caseData.support_url) lines.push(`  Portal: ${caseData.support_url}`);
+          } else {
+            lines.push("", "Support contact: (not found in registry)");
+          }
+        }
+
         if (caseData.clarifications.length > 0) {
           lines.push("", "Missing support details:");
           for (const item of caseData.clarifications) {

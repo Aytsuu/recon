@@ -10,6 +10,9 @@
   "problem_summary": "Intermittent internet connection.",
   "attempted_resolutions": ["Restarted the router"],
   "desired_outcome": null,
+  "support_email": null,
+  "support_phone": null,
+  "support_url": null,
   "clarifications": [
     {
       "id": 10,

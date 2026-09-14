@@ -41,6 +41,9 @@ def test_case_data_serializes_snake_case_fields() -> None:
         "problem_summary",
         "attempted_resolutions",
         "desired_outcome",
+        "support_email",
+        "support_phone",
+        "support_url",
         "clarifications",
         "draft",
     }

@@ -19,5 +19,8 @@ class CaseData(BaseModel):
     problem_summary: str | None = None
     attempted_resolutions: list[str] = Field(default_factory=list)
     desired_outcome: str | None = None
+    support_email: str | None = None
+    support_phone: str | None = None
+    support_url: str | None = None
     clarifications: list[ClarificationData] = Field(default_factory=list)
     draft: DraftData | None = None

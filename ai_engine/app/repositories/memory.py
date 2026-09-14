@@ -24,6 +24,9 @@ class InMemoryCaseRepository:
         problem_summary: str | None = None,
         attempted_resolutions: list[str] | None = None,
         desired_outcome: str | None = None,
+        support_email: str | None = None,
+        support_phone: str | None = None,
+        support_url: str | None = None,
     ) -> CaseData:
         case = CaseData(
             id=self._next_case_id,
@@ -37,6 +40,9 @@ class InMemoryCaseRepository:
             problem_summary=problem_summary,
             attempted_resolutions=list(attempted_resolutions or []),
             desired_outcome=desired_outcome,
+            support_email=support_email,
+            support_phone=support_phone,
+            support_url=support_url,
         )
         self._cases[case.id] = case
         self._next_case_id += 1

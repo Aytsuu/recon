@@ -37,6 +37,9 @@ def compose_draft(case: CaseData) -> DraftData:
         f"I would like the following outcome: {outcome}\n\n"
         "Thank you for your assistance."
     )
+    contact_channel = case.support_email or case.support_url
+    if contact_channel:
+        body = f"{body}\n\nPlease direct your response to this complaint via {contact_channel}."
 
     return DraftData(
         id=0,
@@ -59,7 +62,9 @@ def _format_draft_prompt(case: CaseData) -> str:
         f"Issue category: {case.issue_category or 'Unknown'}\n"
         f"Problem summary: {case.problem_summary or case.case_text or 'Unknown'}\n"
         f"Attempted resolutions: {attempted}\n"
-        f"Desired outcome: {case.desired_outcome or 'Unknown'}"
+        f"Desired outcome: {case.desired_outcome or 'Unknown'}\n"
+        f"Support contact email: {case.support_email or 'Unknown'}\n"
+        f"Support portal: {case.support_url or 'Unknown'}"
     )
 
 

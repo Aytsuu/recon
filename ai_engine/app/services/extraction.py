@@ -4,6 +4,7 @@ from app.schemas.clarification import ClarificationData
 from app.schemas.enums import CaseStatus, ClarificationStatus
 from app.services.intelligence.protocol import ExtractionResult
 from app.services.intelligence.questions import CLARIFICATION_QUESTIONS
+from app.services.providers import lookup as provider_lookup
 
 
 def apply_extraction(
@@ -20,6 +21,15 @@ def apply_extraction(
         attempted_resolutions=list(result.attempted_resolutions),
         desired_outcome=result.desired_outcome,
     )
+
+    contact = provider_lookup(result.provider_name)
+    if contact is not None:
+        repository.update_case(
+            case.id,
+            support_email=contact.support_email,
+            support_phone=contact.support_phone,
+            support_url=contact.support_url,
+        )
 
     existing_keys = {item.field_key for item in case.clarifications}
     next_position = max((item.position for item in case.clarifications), default=0)
