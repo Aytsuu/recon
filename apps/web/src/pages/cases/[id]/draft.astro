@@ -12,15 +12,6 @@
 import Layout from '../../../layouts/Layout.astro';
 import { getCase } from '../../../data/index.js';
 
-export async function getStaticPaths() {
-  return [
-    { params: { id: '1' } },
-    { params: { id: '2' } },
-    { params: { id: '3' } },
-    { params: { id: '4' } },
-  ];
-}
-
 const { id } = Astro.params;
 const caseId = Number(id);
 

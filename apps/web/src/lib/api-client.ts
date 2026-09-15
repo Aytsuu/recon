@@ -42,7 +42,12 @@ function pickFixture(caseId: number): CaseResponse {
   if (caseId === 2) return FIXTURES.clarifying_typed as CaseResponse;
   if (caseId === 3) return FIXTURES.draft_ready_typed as CaseResponse;
   if (caseId === 4) return FIXTURES.voice_transcribing as CaseResponse;
-  return FIXTURES.input_ready_typed as CaseResponse;
+  return {
+    data: {
+      ...(FIXTURES.input_ready_typed as CaseResponse).data,
+      id: caseId,
+    },
+  };
 }
 
 let mockNextId = 5;
@@ -85,7 +90,13 @@ export async function createCase(
 
     // Return a shallow copy with a unique mock id.
     return {
-      data: { ...fixture.data, id: mockNextId++ },
+      data: {
+        ...fixture.data,
+        id: mockNextId++,
+        input_mode: payload.input_mode,
+        ...(payload.case_text ? { case_text: payload.case_text } : {}),
+        ...(payload.provider_name ? { provider_name: payload.provider_name } : {}),
+      },
     } as CaseResponse;
   }
 
