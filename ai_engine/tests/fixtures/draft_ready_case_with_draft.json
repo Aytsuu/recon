@@ -1,0 +1,23 @@
+{
+  "id": 4,
+  "input_mode": "typed",
+  "status": "draft_ready",
+  "case_text": "My internet keeps disconnecting.",
+  "language_code": "en",
+  "provider_name": "Converge ICT",
+  "service_name": "Residential fiber internet",
+  "issue_category": "internet_connectivity",
+  "problem_summary": "Intermittent internet connection.",
+  "attempted_resolutions": ["Restarted the router"],
+  "desired_outcome": "Restore stable service",
+  "support_email": null,
+  "support_phone": null,
+  "support_url": null,
+  "clarifications": [],
+  "draft": {
+    "id": 20,
+    "subject": "Internet connectivity issue",
+    "body": "Hello support, my connection keeps dropping every few minutes.",
+    "language_code": "en"
+  }
+}

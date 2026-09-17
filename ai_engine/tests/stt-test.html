@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Engine STT test</title>
+    <style>
+      :root {
+        --border: #d8d8d8;
+        --bg: #f7f7f7;
+        --idle: #eef1f4;
+        --working: #fff8e6;
+        --done: #edf8ef;
+        --error: #fdeeee;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 1.5rem;
+        line-height: 1.5;
+        background: #fafafa;
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+      }
+
+      .hint {
+        color: #555;
+        font-size: 0.9rem;
+        max-width: 72rem;
+      }
+
+      .controls {
+        margin: 1rem 0;
+      }
+
+      button {
+        margin-right: 0.5rem;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.9fr);
+        gap: 1rem;
+        align-items: start;
+        max-width: 72rem;
+      }
+
+      .main-panel,
+      .agent-panel {
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        background: white;
+        overflow: hidden;
+      }
+
+      .panel-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .panel-body {
+        padding: 1rem;
+      }
+
+      .status-pill {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .status-idle {
+        background: var(--idle);
+        color: #4b5563;
+      }
+
+      .status-working {
+        background: var(--working);
+        color: #92400e;
+      }
+
+      .status-done {
+        background: var(--done);
+        color: #166534;
+      }
+
+      .status-error {
+        background: var(--error);
+        color: #991b1b;
+      }
+
+      pre {
+        margin: 0;
+        background: var(--bg);
+        padding: 1rem;
+        border-radius: 0.25rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 28rem;
+        overflow: auto;
+        font-size: 0.92rem;
+      }
+
+      .agents {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .agent-panel.status-idle .panel-header {
+        background: var(--idle);
+      }
+
+      .agent-panel.status-working .panel-header {
+        background: var(--working);
+      }
+
+      .agent-panel.status-done .panel-header {
+        background: var(--done);
+      }
+
+      .agent-panel.status-error .panel-header {
+        background: var(--error);
+      }
+
+      .agent-output {
+        margin: 0;
+        font-size: 0.92rem;
+        color: #222;
+        white-space: pre-wrap;
+      }
+
+      .agent-output.empty {
+        color: #777;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>AI Engine STT test</h1>
+    <p class="hint">
+      Requires the API at <code>http://localhost:8000</code> with
+      <code>AI_ENGINE_ASSEMBLYAI_API_KEY</code> set. Agent panels on the right
+      show how Intent, Context, and Contact work maps onto the current API flow.
+    </p>
+
+    <div class="controls">
+      <label>
+        API base URL
+        <input id="api-base" type="text" value="http://localhost:8000" size="40" />
+      </label>
+      <div>
+        <button id="start" type="button">Start</button>
+        <button id="stop" type="button" disabled>Stop and save</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="main-panel">
+        <div class="panel-header">
+          <span>Main flow</span>
+          <span id="main-status" class="status-pill status-idle">Idle</span>
+        </div>
+        <div class="panel-body">
+          <pre id="out">Click Start, speak, then Stop and save.</pre>
+        </div>
+      </section>
+
+      <aside class="agents">
+        <section class="agent-panel status-idle" id="intent-panel">
+          <div class="panel-header">
+            <span>Intent Agent</span>
+            <span id="intent-status" class="status-pill status-idle">Idle</span>
+          </div>
+          <div class="panel-body">
+            <p class="agent-output empty" id="intent-output">
+              Understands concern type, problem summary, attempted fixes, and desired outcome.
+            </p>
+          </div>
+        </section>
+
+        <section class="agent-panel status-idle" id="context-panel">
+          <div class="panel-header">
+            <span>Context Agent</span>
+            <span id="context-status" class="status-pill status-idle">Idle</span>
+          </div>
+          <div class="panel-body">
+            <p class="agent-output empty" id="context-output">
+              Identifies provider, service, issue category, and missing support details.
+            </p>
+          </div>
+        </section>
+
+        <section class="agent-panel status-idle" id="contact-panel">
+          <div class="panel-header">
+            <span>Contact Agent</span>
+            <span id="contact-status" class="status-pill status-idle">Idle</span>
+          </div>
+          <div class="panel-body">
+            <p class="agent-output empty" id="contact-output">
+              Composes the support message once the case is ready for drafting.
+            </p>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <script>
+      const SAMPLE_RATE = 16000;
+      const out = document.getElementById("out");
+      const startBtn = document.getElementById("start");
+      const stopBtn = document.getElementById("stop");
+      const apiBaseInput = document.getElementById("api-base");
+      const mainStatus = document.getElementById("main-status");
+
+      const agentPanels = {
+        intent: {
+          panel: document.getElementById("intent-panel"),
+          status: document.getElementById("intent-status"),
+          output: document.getElementById("intent-output"),
+        },
+        context: {
+          panel: document.getElementById("context-panel"),
+          status: document.getElementById("context-status"),
+          output: document.getElementById("context-output"),
+        },
+        contact: {
+          panel: document.getElementById("contact-panel"),
+          status: document.getElementById("contact-status"),
+          output: document.getElementById("contact-output"),
+        },
+      };
+
+      let ws;
+      let audioContext;
+      let processor;
+      let mediaStream;
+      let caseId;
+      let transcript = "";
+      let latestPartial = "";
+      let sessionReady = false;
+      let recording = false;
+      let stopRequested = false;
+
+      function apiBase() {
+        return apiBaseInput.value.replace(/\/$/, "");
+      }
+
+      function setMainStatus(state, label) {
+        mainStatus.className = `status-pill status-${state}`;
+        mainStatus.textContent = label;
+      }
+
+      function setAgentState(agentName, state, label, text) {
+        const agent = agentPanels[agentName];
+        agent.panel.className = `agent-panel status-${state}`;
+        agent.status.className = `status-pill status-${state}`;
+        agent.status.textContent = label;
+        agent.output.textContent = text;
+        agent.output.classList.toggle("empty", !text.trim());
+      }
+
+      function resetAgentPanels() {
+        setAgentState(
+          "intent",
+          "idle",
+          "Idle",
+          "Understands concern type, problem summary, attempted fixes, and desired outcome.",
+        );
+        setAgentState(
+          "context",
+          "idle",
+          "Idle",
+          "Identifies provider, service, issue category, and missing support details.",
+        );
+        setAgentState(
+          "contact",
+          "idle",
+          "Idle",
+          "Composes the support message once the case is ready for drafting.",
+        );
+      }
+
+      function formatIntentOutput(caseData) {
+        const attempted = caseData.attempted_resolutions?.length
+          ? caseData.attempted_resolutions.join(", ")
+          : "(none detected)";
+        return [
+          "Structured intent:",
+          `Category: ${caseData.issue_category || "(pending)"}`,
+          `Problem: ${caseData.problem_summary || "(pending)"}`,
+          `Attempted resolutions: ${attempted}`,
+          `Desired outcome: ${caseData.desired_outcome || "(pending)"}`,
+        ].join("\n");
+      }
+
+      function formatContextOutput(caseData) {
+        const lines = [
+          "Provider context:",
+          `Provider: ${caseData.provider_name || "(pending)"}`,
+          `Service: ${caseData.service_name || "(pending)"}`,
+          `Issue category: ${caseData.issue_category || "(pending)"}`,
+        ];
+
+        if (caseData.provider_name) {
+          const hasContact =
+            caseData.support_email || caseData.support_phone || caseData.support_url;
+          if (hasContact) {
+            lines.push("", "Support contact:");
+            if (caseData.support_email) lines.push(`  Email: ${caseData.support_email}`);
+            if (caseData.support_phone) lines.push(`  Phone: ${caseData.support_phone}`);
+            if (caseData.support_url) lines.push(`  Portal: ${caseData.support_url}`);
+          } else {
+            lines.push("", "Support contact: (not found in registry)");
+          }
+        }
+
+        if (caseData.clarifications.length > 0) {
+          lines.push("", "Missing support details:");
+          for (const item of caseData.clarifications) {
+            const suffix =
+              item.status === "answered" && item.answer
+                ? ` → ${item.answer}`
+                : item.status === "pending"
+                  ? " → needs answer"
+                  : "";
+            lines.push(`- ${item.field_key}: ${item.question}${suffix}`);
+          }
+        } else {
+          lines.push("", "All required support details collected.");
+        }
+
+        return lines.join("\n");
+      }
+
+      function formatContactOutput(caseData) {
+        if (!caseData.draft) {
+          return "Waiting for a ready_for_draft case before composing the support message.";
+        }
+        return [
+          "Support message draft:",
+          `Subject: ${caseData.draft.subject}`,
+          "",
+          caseData.draft.body,
+        ].join("\n");
+      }
+
+      function updateAgentPanels(caseData) {
+        const intentReady =
+          caseData.problem_summary || caseData.issue_category || caseData.desired_outcome;
+        setAgentState(
+          "intent",
+          intentReady ? "done" : "working",
+          intentReady ? "Done" : "Working",
+          formatIntentOutput(caseData),
+        );
+
+        const contextState =
+          caseData.status === "clarifying"
+            ? "working"
+            : caseData.provider_name || caseData.service_name
+              ? "done"
+              : "working";
+        setAgentState(
+          "context",
+          contextState,
+          contextState === "done" ? "Done" : "Working",
+          formatContextOutput(caseData),
+        );
+
+        if (caseData.draft) {
+          setAgentState("contact", "done", "Done", formatContactOutput(caseData));
+        } else if (caseData.status === "ready_for_draft") {
+          setAgentState(
+            "contact",
+            "working",
+            "Working",
+            "Case is ready. Contact Agent can compose the support message.",
+          );
+        }
+      }
+
+      function log(message) {
+        out.textContent = message;
+        out.scrollTop = out.scrollHeight;
+      }
+
+      function appendLog(message) {
+        out.textContent = out.textContent ? `${out.textContent}\n${message}` : message;
+        out.scrollTop = out.scrollHeight;
+      }
+
+      function floatTo16BitPCM(float32Array) {
+        const buffer = new ArrayBuffer(float32Array.length * 2);
+        const view = new DataView(buffer);
+        for (let i = 0; i < float32Array.length; i += 1) {
+          const sample = Math.max(-1, Math.min(1, float32Array[i]));
+          view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        }
+        return buffer;
+      }
+
+      async function createVoiceCase() {
+        const response = await fetch(`${apiBase()}/api/cases`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input_mode: "voice" }),
+        });
+        if (!response.ok) {
+          throw new Error(`Create case failed: ${response.status} ${await response.text()}`);
+        }
+        const payload = await response.json();
+        return payload.data.id;
+      }
+
+      async function fetchStreamingToken(id) {
+        const response = await fetch(`${apiBase()}/api/cases/${id}/transcription-token`, {
+          method: "POST",
+        });
+        if (!response.ok) {
+          throw new Error(`Token request failed: ${response.status} ${await response.text()}`);
+        }
+        const payload = await response.json();
+        return payload.data;
+      }
+
+      async function saveReviewedTranscript(id, caseText) {
+        const response = await fetch(`${apiBase()}/api/cases/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ case_text: caseText }),
+        });
+        if (!response.ok) {
+          throw new Error(`Save transcript failed: ${response.status} ${await response.text()}`);
+        }
+        return response.json();
+      }
+
+      async function extractCase(id) {
+        const response = await fetch(`${apiBase()}/api/cases/${id}/extract`, {
+          method: "POST",
+        });
+        if (!response.ok) {
+          throw new Error(`Extract failed: ${response.status} ${await response.text()}`);
+        }
+        const payload = await response.json();
+        return payload.data;
+      }
+
+      async function answerClarification(id, clarificationId, answer) {
+        const response = await fetch(
+          `${apiBase()}/api/cases/${id}/clarifications/${clarificationId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "answered", answer }),
+          },
+        );
+        if (!response.ok) {
+          throw new Error(
+            `Clarification update failed: ${response.status} ${await response.text()}`,
+          );
+        }
+        const payload = await response.json();
+        return payload.data;
+      }
+
+      async function generateDraft(id) {
+        const response = await fetch(`${apiBase()}/api/cases/${id}/draft`, {
+          method: "POST",
+        });
+        if (!response.ok) {
+          throw new Error(`Draft generation failed: ${response.status} ${await response.text()}`);
+        }
+        const payload = await response.json();
+        return payload.data;
+      }
+
+      function defaultClarificationAnswer(fieldKey, caseData) {
+        const answers = {
+          provider_name: caseData.provider_name || "Converge ICT",
+          problem_summary:
+            caseData.problem_summary || "Internet connection issue with red LOS indicator.",
+          desired_outcome: "Restore stable internet service.",
+        };
+        return answers[fieldKey] || "Please resolve the reported issue.";
+      }
+
+      function logCaseSummary(caseData) {
+        appendLog(`Status: ${caseData.status}`);
+        appendLog(`Provider: ${caseData.provider_name || "(missing)"}`);
+        appendLog(`Service: ${caseData.service_name || "(missing)"}`);
+        appendLog(`Category: ${caseData.issue_category || "(missing)"}`);
+        appendLog(`Summary: ${caseData.problem_summary || "(missing)"}`);
+        appendLog(`Desired outcome: ${caseData.desired_outcome || "(missing)"}`);
+        if (caseData.clarifications.length > 0) {
+          appendLog("Clarifications:");
+          for (const item of caseData.clarifications) {
+            appendLog(
+              `  - [${item.status}] ${item.field_key}: ${item.question}` +
+                (item.answer ? ` → ${item.answer}` : ""),
+            );
+          }
+        }
+      }
+
+      async function continueFlow(id) {
+        setAgentState(
+          "intent",
+          "working",
+          "Working",
+          "Extracting concern type, problem summary, and desired outcome...",
+        );
+        setAgentState(
+          "context",
+          "working",
+          "Working",
+          "Identifying provider, service, and missing support details...",
+        );
+
+        appendLog("\n--- Extract ---");
+        let caseData = await extractCase(id);
+        logCaseSummary(caseData);
+        updateAgentPanels(caseData);
+
+        while (caseData.status === "clarifying") {
+          const pending = caseData.clarifications.filter((item) => item.status === "pending");
+          if (pending.length === 0) {
+            break;
+          }
+          const next = pending[0];
+          const answer = defaultClarificationAnswer(next.field_key, caseData);
+          appendLog(`Auto-answering clarification ${next.id} (${next.field_key}).`);
+          setAgentState(
+            "context",
+            "working",
+            "Working",
+            `Gathering missing detail: ${next.field_key}\nAuto-answer: ${answer}`,
+          );
+          caseData = await answerClarification(id, next.id, answer);
+          logCaseSummary(caseData);
+          updateAgentPanels(caseData);
+        }
+
+        if (caseData.status !== "ready_for_draft") {
+          appendLog(`Flow stopped before draft generation (status: ${caseData.status}).`);
+          setAgentState(
+            "contact",
+            "error",
+            "Blocked",
+            `Cannot compose a message while case status is ${caseData.status}.`,
+          );
+          return;
+        }
+
+        setAgentState(
+          "contact",
+          "working",
+          "Working",
+          "Composing support subject and body from the structured case...",
+        );
+        appendLog("\n--- Draft ---");
+        caseData = await generateDraft(id);
+        logCaseSummary(caseData);
+        updateAgentPanels(caseData);
+        if (caseData.draft) {
+          appendLog(`Draft subject: ${caseData.draft.subject}`);
+          appendLog(`Draft body:\n${caseData.draft.body}`);
+        }
+        appendLog("\nFull flow complete.");
+        setMainStatus("done", "Done");
+      }
+
+      function cleanupMedia() {
+        recording = false;
+        if (processor) {
+          processor.disconnect();
+          processor.onaudioprocess = null;
+          processor = undefined;
+        }
+        if (audioContext) {
+          audioContext.close();
+          audioContext = undefined;
+        }
+        if (mediaStream) {
+          for (const track of mediaStream.getTracks()) {
+            track.stop();
+          }
+        }
+        mediaStream = undefined;
+      }
+
+      function handleServerMessage(message) {
+        appendLog(`Server: ${JSON.stringify(message)}`);
+
+        if (message.type === "Begin") {
+          sessionReady = true;
+          appendLog("Session ready. Start speaking.");
+          return;
+        }
+
+        if (message.type === "Error") {
+          appendLog(`AssemblyAI error ${message.error_code}: ${message.error}`);
+          return;
+        }
+
+        if (message.type === "Turn") {
+          const text = message.transcript || "";
+          if (message.end_of_turn) {
+            if (text.trim()) {
+              transcript = transcript ? `${transcript} ${text.trim()}` : text.trim();
+            }
+            latestPartial = "";
+            log(`Final transcript:\n${transcript || "(empty)"}`);
+          } else if (text.trim()) {
+            latestPartial = text.trim();
+            log(`Listening...\n${latestPartial}`);
+          }
+        }
+
+        if (message.type === "Termination") {
+          appendLog("Session terminated by server.");
+        }
+      }
+
+      function waitForSocketClose(socket, timeoutMs = 5000) {
+        return new Promise((resolve) => {
+          if (socket.readyState === WebSocket.CLOSED) {
+            resolve();
+            return;
+          }
+          const timer = window.setTimeout(resolve, timeoutMs);
+          socket.addEventListener(
+            "close",
+            () => {
+              window.clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+      }
+
+      startBtn.addEventListener("click", async () => {
+        transcript = "";
+        latestPartial = "";
+        sessionReady = false;
+        stopRequested = false;
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        resetAgentPanels();
+        setMainStatus("working", "Recording");
+        log("Creating voice case...");
+
+        try {
+          caseId = await createVoiceCase();
+          appendLog(`Case ${caseId} created (transcribing).`);
+
+          const tokenData = await fetchStreamingToken(caseId);
+          const url =
+            `${tokenData.ws_url}?token=${encodeURIComponent(tokenData.token)}` +
+            `&encoding=pcm_s16le&sample_rate=${SAMPLE_RATE}&speech_model=universal-3-5-pro`;
+
+          ws = new WebSocket(url);
+          ws.binaryType = "arraybuffer";
+
+          ws.onmessage = (event) => {
+            handleServerMessage(JSON.parse(event.data));
+          };
+
+          ws.onerror = () => {
+            appendLog("WebSocket error.");
+          };
+
+          ws.onclose = (event) => {
+            appendLog(`WebSocket closed (code=${event.code}, reason=${event.reason || "none"}).`);
+            if (!stopRequested) {
+              startBtn.disabled = false;
+              setMainStatus("idle", "Idle");
+            }
+          };
+
+          ws.onopen = async () => {
+            appendLog("WebSocket open. Requesting microphone...");
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+              },
+            });
+
+            audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            processor = audioContext.createScriptProcessor(4096, 1, 1);
+            processor.onaudioprocess = (event) => {
+              if (!recording || !sessionReady || ws.readyState !== WebSocket.OPEN) {
+                return;
+              }
+              const input = event.inputBuffer.getChannelData(0);
+              ws.send(floatTo16BitPCM(input));
+            };
+
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+
+            recording = true;
+            appendLog(`Streaming PCM16 mono at ${SAMPLE_RATE} Hz.`);
+            stopBtn.disabled = false;
+          };
+        } catch (error) {
+          log(`Error: ${error.message}`);
+          startBtn.disabled = false;
+          setMainStatus("error", "Error");
+          cleanupMedia();
+        }
+      });
+
+      stopBtn.addEventListener("click", async () => {
+        stopRequested = true;
+        stopBtn.disabled = true;
+        setMainStatus("working", "Processing");
+        try {
+          recording = false;
+          cleanupMedia();
+
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ForceEndpoint" }));
+            appendLog("Sent ForceEndpoint, waiting for final turn...");
+            await new Promise((resolve) => window.setTimeout(resolve, 1500));
+            ws.send(JSON.stringify({ type: "Terminate" }));
+            appendLog("Sent Terminate, waiting for server close...");
+            await waitForSocketClose(ws, 5000);
+          }
+
+          const reviewedText = (transcript || latestPartial).trim();
+          if (!reviewedText) {
+            appendLog("No finalized transcript received.");
+            startBtn.disabled = false;
+            setMainStatus("error", "Error");
+            return;
+          }
+
+          const saved = await saveReviewedTranscript(caseId, reviewedText);
+          appendLog(`Saved to case ${caseId}. Status: ${saved.data.status}`);
+          appendLog(`case_text: ${saved.data.case_text}`);
+          await continueFlow(caseId);
+        } catch (error) {
+          appendLog(`Error: ${error.message}`);
+          setMainStatus("error", "Error");
+          setAgentState("contact", "error", "Error", error.message);
+        } finally {
+          startBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
