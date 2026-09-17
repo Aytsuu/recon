@@ -17,35 +17,35 @@ owns those areas.
 
 ### A1. Establish the API contract and test seam
 
-- [ ] **Complete:** Add Pydantic request and response models matching the shared
+- [x] **Complete:** Add Pydantic request and response models matching the shared
   `Case` payload, clarification payload, draft payload, and endpoint requests.
-  - [ ] **Verify:** API-schema tests accept the shared JSON fixtures and reject
+  - [x] **Verify:** API-schema tests accept the shared JSON fixtures and reject
     malformed state, blank typed input, and invalid clarification answers.
 
-- [ ] **Complete:** Add route modules for cases, transcription, extraction,
+- [x] **Complete:** Add route modules for cases, transcription, extraction,
   clarifications, and drafts under `ai_engine/app/api/routes/`.
-  - [ ] **Verify:** Each route is registered under `/api`, returns the agreed
+  - [x] **Verify:** Each route is registered under `/api`, returns the agreed
     response shape, and leaves `GET /health` unchanged.
 
-- [ ] **Complete:** Define a small `CaseRepository` interface for create, load,
+- [x] **Complete:** Define a small `CaseRepository` interface for create, load,
   update, clarification, draft, and delete operations.
-  - [ ] **Verify:** Repository contract tests pass against an in-memory
+  - [x] **Verify:** Repository contract tests pass against an in-memory
     implementation before the Supabase-backed implementation exists.
 
 ### A2. Implement the case state machine
 
-- [ ] **Complete:** Implement typed case creation as `input_ready` and empty
+- [x] **Complete:** Implement typed case creation as `input_ready` and empty
   voice case creation as `transcribing`.
-  - [ ] **Verify:** API tests prove the two creation modes return the expected
+  - [x] **Verify:** API tests prove the two creation modes return the expected
     state and reject invalid combinations of mode, status, and `case_text`.
 
-- [ ] **Complete:** Implement case updates for reviewed `case_text`, provider,
+- [x] **Complete:** Implement case updates for reviewed `case_text`, provider,
   service, category, summary, attempted resolutions, and desired outcome.
-  - [ ] **Verify:** A material edit removes the existing draft and returns a
+  - [x] **Verify:** A material edit removes the existing draft and returns a
     case to `input_ready` or `ready_for_draft` as required by the shared plan.
 
-- [ ] **Complete:** Implement clarification answers and skipped questions.
-  - [ ] **Verify:** A case cannot become `ready_for_draft` while a required
+- [x] **Complete:** Implement clarification answers and skipped questions.
+  - [x] **Verify:** A case cannot become `ready_for_draft` while a required
     clarification remains pending.
 
 ### A3. Add the AssemblyAI streaming token boundary
@@ -57,34 +57,34 @@ owns those areas.
 > upload-and-poll code is superseded by this description. Browser WebSocket
 > streaming and Turn handling belong to B3.
 
-- [ ] **Complete:** Replace the A1 `501` stub at
+- [x] **Complete:** Replace the A1 `501` stub at
   `POST /api/cases/{case_id}/transcription-token` with a token-issuance
   endpoint that issues a short-lived AssemblyAI streaming token for a voice
   case in `transcribing` status.
-  - [ ] **Verify:** Route returns `404 case_not_found` for an unknown case,
+  - [x] **Verify:** Route returns `404 case_not_found` for an unknown case,
     `409 invalid_case_state` for a typed or non-transcribing case, and a
     `200` success envelope on a valid request. The case status and `case_text`
     are unchanged after the call.
 
-- [ ] **Complete:** Define a `StreamingTokenService` protocol with an
+- [x] **Complete:** Define a `StreamingTokenService` protocol with an
   `issue_token(expires_in_seconds)` method returning a `StreamingTokenResult`
   (`token`, `expires_in_seconds`). Provide a deterministic
   `FakeStreamingTokenService` that requires no key and no network call.
-  - [ ] **Verify:** Tests override the dependency with the fake and assert the
+  - [x] **Verify:** Tests override the dependency with the fake and assert the
     exact token envelope; the normal suite passes offline.
 
-- [ ] **Complete:** Implement an `AssemblyAIStreamingTokenService` that calls
+- [x] **Complete:** Implement an `AssemblyAIStreamingTokenService` that calls
   `GET https://streaming.assemblyai.com/v3/token?expires_in_seconds=60`
   with header `authorization: <key>` (no `Bearer` prefix) and returns the
   token. Return `502 token_issuance_failed` or `503 token_service_unavailable`
   on failure; never expose the key in a response or log.
-  - [ ] **Verify:** Unit tests use an injected mock HTTP client to cover
+  - [x] **Verify:** Unit tests use an injected mock HTTP client to cover
     success and transport failure without making real requests.
 
-- [ ] **Complete:** Add `AI_ENGINE_ASSEMBLYAI_API_KEY=` to `.env.example` and
+- [x] **Complete:** Add `AI_ENGINE_ASSEMBLYAI_API_KEY=` to `.env.example` and
   config. Use the fake when the key is absent; use the real adapter when it is
   set.
-  - [ ] **Verify:** Dependency-selection test confirms no-key → fake and
+  - [x] **Verify:** Dependency-selection test confirms no-key → fake and
     key-set → AssemblyAI adapter. No opt-in audio file is needed because this
     endpoint only issues a token.
 
@@ -107,26 +107,26 @@ events. Reviewed transcript text is persisted only via the existing
 
 ### A4. Extract, clarify, and draft
 
-- [ ] **Complete:** Define a `CaseIntelligenceService` interface that returns
+- [x] **Complete:** Define a `CaseIntelligenceService` interface that returns
   provider, service, issue category, summary, attempted resolutions, desired
   outcome, and missing fields from `case_text`.
-  - [ ] **Verify:** Fixture tests cover the Converge connectivity example and
+  - [x] **Verify:** Fixture tests cover the Converge connectivity example and
     one incomplete case that requires clarification.
 
-- [ ] **Complete:** Implement the first extraction adapter. It may be a simple
+- [x] **Complete:** Implement the first extraction adapter. It may be a simple
   deterministic implementation or the selected model provider, but it must
   validate its result through the Pydantic case model.
-  - [ ] **Verify:** Extraction produces `clarifying` only when one of the three
+  - [x] **Verify:** Extraction produces `clarifying` only when one of the three
     MVP clarification fields is absent; otherwise it produces `ready_for_draft`.
 
-- [ ] **Complete:** Generate one factual `support_draft` only when the case is
+- [x] **Complete:** Generate one factual `support_draft` only when the case is
   ready for drafting.
-  - [ ] **Verify:** Draft tests confirm that known case details appear in the
+  - [x] **Verify:** Draft tests confirm that known case details appear in the
     subject/body and blank required details prevent generation.
 
-- [ ] **Complete:** Support user edits to the draft without adding sending or
+- [x] **Complete:** Support user edits to the draft without adding sending or
   provider-integration behavior.
-  - [ ] **Verify:** Updating the draft returns `draft_ready` and persists the
+  - [x] **Verify:** Updating the draft returns `draft_ready` and persists the
     edited subject and body through the repository.
 
 ### A5. Integrate Supabase persistence
