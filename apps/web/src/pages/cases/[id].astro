@@ -40,8 +40,7 @@ try {
     import {
       getCase,
       patchCase,
-      extractCase,
-      generateDraft,
+      processCase,
       patchClarification,
     } from '../../data/index.js';
     import type { SupportCase, CaseClarification } from '../../data/index.js';
@@ -119,6 +118,9 @@ try {
           ${fieldBlock('Problem summary', c.problem_summary)}
           ${fieldBlock('Attempted resolutions', c.attempted_resolutions)}
           ${fieldBlock('Desired outcome', c.desired_outcome)}
+          ${fieldBlock('Support email', c.support_email)}
+          ${fieldBlock('Support phone', c.support_phone)}
+          ${fieldBlock('Support portal', c.support_url)}
         </section>
 
         ${c.clarifications.length > 0 ? `
@@ -130,12 +132,8 @@ try {
         </section>` : ''}
 
         <div class="action-bar">
-          ${c.status === 'input_ready' || c.status === 'ready_for_draft'
-            ? `<button class="btn btn-primary" data-action="extract" data-cid="${c.id}">Extract &amp; analyse →</button>`
-            : ''
-          }
-          ${(c.status === 'ready_for_draft' || (c.status === 'clarifying' && pendingClarifications.length === 0))
-            ? `<button class="btn btn-primary" data-action="generate-draft" data-cid="${c.id}">Generate draft →</button>`
+          ${c.status === 'input_ready'
+            ? `<button class="btn btn-primary" data-action="process" data-cid="${c.id}">Extract &amp; generate draft →</button>`
             : ''
           }
           ${hasDraft
@@ -183,18 +181,10 @@ try {
             } catch (err) {
               setActionError(err instanceof Error ? err.message : String(err));
             }
-          } else if (action === 'extract') {
+          } else if (action === 'process') {
             setActionError('');
             try {
-              await extractCase(cid);
-              await loadAndRender(cid);
-            } catch (err) {
-              setActionError(err instanceof Error ? err.message : String(err));
-            }
-          } else if (action === 'generate-draft') {
-            setActionError('');
-            try {
-              await generateDraft(cid);
+              await processCase(cid);
               window.location.href = `/cases/${cid}/draft`;
             } catch (err) {
               setActionError(err instanceof Error ? err.message : String(err));

@@ -1,23 +1,25 @@
 import { type MutationOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import { extractCase, type CaseResponse } from '@/data';
+import { processVoice, type CaseResponse } from '@/data';
 import { alertApiError } from '@/utils/api-errors';
 
-export type ExtractCaseVariables = {
+export type ProcessVoiceVariables = {
   caseId: number;
+  caseText: string;
 };
 
-export type UseExtractCaseMutationArgs = MutationOptions<
+export type UseProcessVoiceMutationArgs = MutationOptions<
   CaseResponse,
   Error,
-  ExtractCaseVariables
+  ProcessVoiceVariables
 >;
 
-export function useExtractCaseMutation(args: UseExtractCaseMutationArgs = {}) {
+export function useProcessVoiceMutation(args: UseProcessVoiceMutationArgs = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
     ...args,
-    mutationFn: ({ caseId }: ExtractCaseVariables) => extractCase(caseId),
+    mutationFn: ({ caseId, caseText }: ProcessVoiceVariables) =>
+      processVoice(caseId, caseText),
     onSuccess: async (data, variables, context) => {
       await queryClient.invalidateQueries({ queryKey: ['/cases'] });
       await queryClient.invalidateQueries({ queryKey: ['/cases', variables.caseId] });

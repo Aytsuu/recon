@@ -49,6 +49,9 @@ export interface SupportCase {
   problem_summary: string | null;
   attempted_resolutions: string[];
   desired_outcome: string | null;
+  support_email: string | null;
+  support_phone: string | null;
+  support_url: string | null;
   clarifications: CaseClarification[];
   draft: SupportDraft | null;
 }

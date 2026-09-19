@@ -37,7 +37,7 @@ try {
   </div>
 
   <script>
-    import { getCase, patchDraft, generateDraft } from '../../../data/index.js';
+    import { getCase, patchDraft, processCase } from '../../../data/index.js';
     import type { SupportCase } from '../../../data/index.js';
 
     const rootEl = document.getElementById('draft-root');
@@ -126,7 +126,7 @@ try {
       regenBtn?.addEventListener('click', async () => {
         setDraftError('');
         try {
-          await generateDraft(caseId);
+          await processCase(caseId);
           await loadAndRender(caseId);
         } catch (err) {
           setDraftError(err instanceof Error ? err.message : String(err));

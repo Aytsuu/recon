@@ -6,6 +6,7 @@ from app.api.routes import (
     drafts,
     extraction,
     health,
+    processing,
     transcription,
 )
 
@@ -16,3 +17,4 @@ api_router.include_router(transcription.router, prefix="/api")
 api_router.include_router(extraction.router, prefix="/api")
 api_router.include_router(clarifications.router, prefix="/api")
 api_router.include_router(drafts.router, prefix="/api")
+api_router.include_router(processing.router, prefix="/api")

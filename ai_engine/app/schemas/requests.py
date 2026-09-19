@@ -62,6 +62,18 @@ class UpdateClarificationRequest(BaseModel):
         return self
 
 
+class ProcessVoiceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_text: str
+
+    @model_validator(mode="after")
+    def validate_case_text(self) -> Self:
+        if _is_blank(self.case_text):
+            raise ValueError("case_text is required and cannot be blank")
+        return self
+
+
 class UpdateDraftRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

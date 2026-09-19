@@ -1,7 +1,5 @@
 /**
  * Data access layer for RECON entities.
- * Re-exports API functions and types for consumption by TanStack Query hooks,
- * server components, or UI boundaries.
  */
 
 export {
@@ -9,13 +7,16 @@ export {
   getCase,
   patchCase,
   deleteCase,
-  transcribeCase,
-  extractCase,
-  patchClarification,
-  generateDraft,
-  patchDraft,
   searchCases,
-} from '../lib/api-client.js';
+  patchClarification,
+  patchDraft,
+} from '../lib/supabase-client.js';
+
+export {
+  fetchTranscriptionToken,
+  processVoice,
+  processCase,
+} from '../lib/ai-engine-client.js';
 
 export type {
   CaseClarification,
@@ -24,7 +25,6 @@ export type {
   InputMode,
   SupportCase,
   CaseResponse,
-  TranscribeResponse,
   CreateCasePayload,
   PatchCasePayload,
   PatchClarificationPayload,
@@ -34,3 +34,8 @@ export type {
   SearchCasesResponse,
   ApiError,
 } from '../lib/types.js';
+
+export type {
+  TranscriptionTokenData,
+  TranscriptionTokenResponse,
+} from '../lib/ai-engine-client.js';

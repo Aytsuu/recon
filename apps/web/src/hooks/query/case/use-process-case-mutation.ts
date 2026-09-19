@@ -1,26 +1,25 @@
 import { type MutationOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import { transcribeCase, type TranscribeResponse } from '@/data';
+import { processCase, type CaseResponse } from '@/data';
 import { alertApiError } from '@/utils/api-errors';
 
-export type TranscribeCaseVariables = {
+export type ProcessCaseVariables = {
   caseId: number;
-  audio: Blob;
 };
 
-export type UseTranscribeCaseMutationArgs = MutationOptions<
-  TranscribeResponse,
+export type UseProcessCaseMutationArgs = MutationOptions<
+  CaseResponse,
   Error,
-  TranscribeCaseVariables
+  ProcessCaseVariables
 >;
 
-export function useTranscribeCaseMutation(args: UseTranscribeCaseMutationArgs = {}) {
+export function useProcessCaseMutation(args: UseProcessCaseMutationArgs = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
     ...args,
-    mutationFn: ({ caseId, audio }: TranscribeCaseVariables) =>
-      transcribeCase(caseId, audio),
+    mutationFn: ({ caseId }: ProcessCaseVariables) => processCase(caseId),
     onSuccess: async (data, variables, context) => {
+      await queryClient.invalidateQueries({ queryKey: ['/cases'] });
       await queryClient.invalidateQueries({ queryKey: ['/cases', variables.caseId] });
       args.onSuccess?.(data, variables, context);
     },

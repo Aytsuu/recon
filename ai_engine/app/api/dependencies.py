@@ -1,5 +1,7 @@
 from app.core.config import get_settings
 from app.repositories.memory import InMemoryCaseRepository
+from app.repositories.protocol import CaseRepository
+from app.repositories.supabase import SupabaseCaseRepository
 from app.services.draft import DraftService, LLMDraftService, TemplateDraftService
 from app.services.intelligence import CaseIntelligenceService, RuleBasedCaseIntelligenceService
 from app.services.intelligence.llm_based import LLMCaseIntelligenceService
@@ -10,18 +12,36 @@ from app.services.transcription import (
     StreamingTokenService,
 )
 
-_repository: InMemoryCaseRepository | None = None
+_repository: CaseRepository | None = None
 
 
-def get_case_repository() -> InMemoryCaseRepository:
+def get_case_repository() -> CaseRepository:
     global _repository
-    if _repository is None:
-        _repository = InMemoryCaseRepository()
+    if _repository is not None:
+        return _repository
+
+    settings = get_settings()
+    if settings.supabase_url and settings.supabase_service_role_key:
+        _repository = SupabaseCaseRepository.from_credentials(
+            settings.supabase_url,
+            settings.supabase_service_role_key,
+        )
+        return _repository
+
+    _repository = InMemoryCaseRepository()
     return _repository
 
 
-def reset_case_repository() -> InMemoryCaseRepository:
+def reset_case_repository() -> CaseRepository:
     global _repository
+    settings = get_settings()
+    if settings.supabase_url and settings.supabase_service_role_key:
+        _repository = SupabaseCaseRepository.from_credentials(
+            settings.supabase_url,
+            settings.supabase_service_role_key,
+        )
+        return _repository
+
     _repository = InMemoryCaseRepository()
     return _repository
 

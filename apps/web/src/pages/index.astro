@@ -1,10 +1,7 @@
 ---
 /**
  * Index — Initial problem form
- * Allows a user to type their support problem and optionally provide
- * a provider name. Submitting creates a new case via POST /api/cases.
- *
- * Implements context-factory/frameworks/astro/01-project-shape.md & 02-routing-pages.md
+ * Typed cases → Supabase. Voice cases → Supabase create + AI Engine token/process.
  */
 import Layout from '../layouts/Layout.astro';
 ---
@@ -13,29 +10,24 @@ import Layout from '../layouts/Layout.astro';
   <h1>Recon</h1>
   <p class="subtitle">Describe your support issue and we will help you write a complaint letter.</p>
 
-  <!-- Mode selector -->
   <div class="mode-row">
     <button class="mode-btn active" id="btn-typed" type="button">✍️ Type</button>
     <button class="mode-btn" id="btn-voice" type="button">🎙️ Voice</button>
   </div>
 
   <form id="case-form" novalidate>
-    <!-- Text mode -->
     <div id="typed-section">
       <label for="case_text">Describe your problem</label>
       <textarea id="case_text" name="case_text" placeholder="E.g. My internet keeps dropping every few hours…"></textarea>
     </div>
 
-    <!-- Voice mode -->
     <div class="recorder" id="voice-section">
       <p id="recorder-status">Press start to record.</p>
       <button class="recorder-btn rec-start" id="rec-start" type="button">Start Recording</button>
-      <button class="recorder-btn rec-stop" id="rec-stop" type="button" style="display:none">Stop Recording</button>
+      <button class="recorder-btn rec-stop" id="rec-stop" type="button" style="display:none">Stop and process</button>
       <p id="perm-denied" class="error-msg">Microphone access was denied. Please allow access in your browser settings, or <button type="button" class="mode-btn" style="display:inline;border:none;padding:0;color:#2563eb;font-weight:600;cursor:pointer;" id="switch-typed">switch to typing</button>.</p>
-      <audio id="audio-preview" controls style="display:none;margin-top:0.75rem;width:100%"></audio>
     </div>
 
-    <!-- Provider (optional) -->
     <label for="provider_name">Provider name (optional)</label>
     <input id="provider_name" name="provider_name" type="text" placeholder="E.g. Converge ICT, Globe, PLDT…" />
 
@@ -45,12 +37,23 @@ import Layout from '../layouts/Layout.astro';
   </form>
 
   <script>
-    // Mode toggle
+    const SAMPLE_RATE = 16000;
+
     const btnTyped = document.getElementById('btn-typed');
     const btnVoice = document.getElementById('btn-voice');
     const typedSec = document.getElementById('typed-section');
     const voiceSec = document.getElementById('voice-section');
-    let currentMode = 'typed';
+    let currentMode: 'typed' | 'voice' = 'typed';
+
+    let ws: WebSocket | null = null;
+    let audioContext: AudioContext | null = null;
+    let processor: ScriptProcessorNode | null = null;
+    let mediaStream: MediaStream | null = null;
+    let transcript = '';
+    let latestPartial = '';
+    let sessionReady = false;
+    let recording = false;
+    let voiceCaseId: number | null = null;
 
     function setMode(mode: 'typed' | 'voice') {
       currentMode = mode;
@@ -64,79 +67,241 @@ import Layout from '../layouts/Layout.astro';
     btnVoice?.addEventListener('click', () => setMode('voice'));
     document.getElementById('switch-typed')?.addEventListener('click', () => setMode('typed'));
 
-    // Browser recorder (voice mode)
-    let mediaRecorder: MediaRecorder | null = null;
-    let audioChunks: Blob[] = [];
-    let audioBlob: Blob | null = null;
+    function floatTo16BitPCM(float32Array: Float32Array) {
+      const buffer = new ArrayBuffer(float32Array.length * 2);
+      const view = new DataView(buffer);
+      for (let i = 0; i < float32Array.length; i += 1) {
+        const sample = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      }
+      return buffer;
+    }
+
+    function cleanupMedia() {
+      recording = false;
+      if (processor) {
+        processor.disconnect();
+        processor.onaudioprocess = null;
+        processor = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      if (mediaStream) {
+        for (const track of mediaStream.getTracks()) track.stop();
+        mediaStream = null;
+      }
+    }
+
+    function waitForSocketClose(socket: WebSocket, timeoutMs = 5000) {
+      return new Promise<void>((resolve) => {
+        if (socket.readyState === WebSocket.CLOSED) {
+          resolve();
+          return;
+        }
+        const timer = window.setTimeout(resolve, timeoutMs);
+        socket.addEventListener('close', () => {
+          window.clearTimeout(timer);
+          resolve();
+        }, { once: true });
+      });
+    }
 
     const recStart = document.getElementById('rec-start');
     const recStop = document.getElementById('rec-stop');
     const recStatus = document.getElementById('recorder-status');
     const permDenied = document.getElementById('perm-denied');
-    const audioPreview = document.getElementById('audio-preview') as HTMLAudioElement | null;
+    const formError = document.getElementById('form-error');
+
+    function isMicPermissionError(err: unknown) {
+      return (
+        err instanceof DOMException &&
+        (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')
+      );
+    }
+
+    function showRecorderError(err: unknown) {
+      cleanupMedia();
+      if (recStart) recStart.style.display = '';
+      if (recStop) recStop.style.display = 'none';
+
+      if (isMicPermissionError(err)) {
+        permDenied?.classList.add('visible');
+        if (recStatus) recStatus.textContent = 'Microphone access was denied.';
+        return;
+      }
+
+      const message =
+        err instanceof Error ? err.message : 'Could not start recording. Please try again.';
+      if (formError) {
+        formError.textContent = message;
+        formError.classList.add('visible');
+      }
+      if (recStatus) recStatus.textContent = 'Could not start recording.';
+    }
+
+    function startAudioPipeline() {
+      if (!mediaStream) return;
+
+      audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+      const source = audioContext.createMediaStreamSource(mediaStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = (event) => {
+        if (!recording || !sessionReady || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const input = event.inputBuffer.getChannelData(0);
+        ws.send(floatTo16BitPCM(input));
+      };
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      recording = true;
+      if (recStart) recStart.style.display = 'none';
+      if (recStop) recStop.style.display = '';
+    }
 
     recStart?.addEventListener('click', async () => {
       permDenied?.classList.remove('visible');
+      formError?.classList.remove('visible');
+      transcript = '';
+      latestPartial = '';
+      sessionReady = false;
+      voiceCaseId = null;
+      cleanupMedia();
+
+      if (recStart instanceof HTMLButtonElement) recStart.disabled = true;
+      if (recStatus) recStatus.textContent = 'Requesting microphone access…';
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-        audioBlob = null;
-        if (audioPreview) audioPreview.style.display = 'none';
+        if (!window.isSecureContext) {
+          throw new Error('Microphone access requires HTTPS or localhost. Open this page via http://localhost, not a LAN IP or file URL.');
+        }
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('This browser does not support microphone capture.');
+        }
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunks.push(e.data);
-        };
-        mediaRecorder.onstop = () => {
-          audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          if (audioPreview) {
-            audioPreview.src = URL.createObjectURL(audioBlob);
-            audioPreview.style.display = '';
+        // Request mic while the click user-gesture is still active. Browsers will not
+        // prompt if getUserMedia is deferred until after async API calls or WebSocket open.
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+        });
+
+        if (recStatus) recStatus.textContent = 'Connecting to transcription service…';
+
+        const { createCase, fetchTranscriptionToken } = await import('../data/index.js');
+        const providerName = (document.getElementById('provider_name') as HTMLInputElement | null)?.value.trim() ?? '';
+
+        const created = await createCase({
+          input_mode: 'voice',
+          ...(providerName ? { provider_name: providerName } : {}),
+        });
+        voiceCaseId = created.data.id;
+
+        const tokenData = await fetchTranscriptionToken(voiceCaseId);
+        const url =
+          `${tokenData.data.ws_url}?token=${encodeURIComponent(tokenData.data.token)}` +
+          `&encoding=pcm_s16le&sample_rate=${SAMPLE_RATE}&speech_model=universal-3-5-pro`;
+
+        ws = new WebSocket(url);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === 'Begin') {
+            sessionReady = true;
+            if (recStatus) recStatus.textContent = 'Listening… speak now.';
+            return;
           }
-          if (recStatus) recStatus.textContent = 'Recording ready. Submit to transcribe.';
+          if (message.type === 'Turn') {
+            const text = message.transcript || '';
+            if (message.end_of_turn) {
+              if (text.trim()) {
+                transcript = transcript ? `${transcript} ${text.trim()}` : text.trim();
+              }
+              latestPartial = '';
+              if (recStatus) recStatus.textContent = `Heard: ${transcript || '(empty)'}`;
+            } else if (text.trim()) {
+              latestPartial = text.trim();
+              if (recStatus) recStatus.textContent = `Listening… ${latestPartial}`;
+            }
+          }
         };
 
-        mediaRecorder.start();
-        if (recStart) recStart.style.display = 'none';
-        if (recStop) recStop.style.display = '';
-        if (recStatus) recStatus.textContent = 'Recording…';
-      } catch {
-        permDenied?.classList.add('visible');
-        if (recStatus) recStatus.textContent = 'Could not start recording.';
+        ws.onerror = () => {
+          showRecorderError(new Error('Transcription connection failed. Is the AI Engine running?'));
+        };
+
+        ws.onclose = (event) => {
+          if (!recording || event.wasClean) return;
+          showRecorderError(new Error('Transcription connection closed unexpectedly.'));
+        };
+
+        ws.onopen = () => {
+          startAudioPipeline();
+        };
+      } catch (err) {
+        showRecorderError(err);
+      } finally {
+        if (recStart instanceof HTMLButtonElement) recStart.disabled = false;
       }
     });
 
-    recStop?.addEventListener('click', () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+    recStop?.addEventListener('click', async () => {
+      if (!voiceCaseId) return;
+      if (recStop) recStop.disabled = true;
+      if (recStatus) recStatus.textContent = 'Processing…';
+
+      try {
+        recording = false;
+        cleanupMedia();
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ForceEndpoint' }));
+          await new Promise((resolve) => window.setTimeout(resolve, 1500));
+          ws.send(JSON.stringify({ type: 'Terminate' }));
+          await waitForSocketClose(ws);
+        }
+
+        const reviewedText = (transcript || latestPartial).trim();
+        if (!reviewedText) {
+          throw new Error('No speech detected. Please try again.');
+        }
+
+        const { processVoice } = await import('../data/index.js');
+        await processVoice(voiceCaseId, reviewedText);
+        window.location.href = `/cases/${voiceCaseId}`;
+      } catch (err) {
+        const formError = document.getElementById('form-error');
+        if (formError) {
+          formError.textContent = err instanceof Error ? err.message : 'Voice processing failed.';
+          formError.classList.add('visible');
+        }
+        if (recStop) recStop.disabled = false;
+        if (recStatus) recStatus.textContent = 'Press start to record.';
+        if (recStart) recStart.style.display = '';
       }
-      if (recStop) recStop.style.display = 'none';
-      if (recStart) recStart.style.display = '';
     });
 
-    // Form submission
     const form = document.getElementById('case-form') as HTMLFormElement | null;
     const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement | null;
-    const formError = document.getElementById('form-error');
 
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       formError?.classList.remove('visible');
 
-      const caseText = (document.getElementById('case_text') as HTMLTextAreaElement | null)?.value.trim() ?? '';
-      const providerName = (document.getElementById('provider_name') as HTMLInputElement | null)?.value.trim() ?? '';
-
-      if (currentMode === 'typed' && !caseText) {
+      if (currentMode === 'voice') {
         if (formError) {
-          formError.textContent = 'Please describe your problem.';
+          formError.textContent = 'Use Start Recording for voice cases, then Stop and process.';
           formError.classList.add('visible');
         }
         return;
       }
-      if (currentMode === 'voice' && !audioBlob) {
+
+      const caseText = (document.getElementById('case_text') as HTMLTextAreaElement | null)?.value.trim() ?? '';
+      const providerName = (document.getElementById('provider_name') as HTMLInputElement | null)?.value.trim() ?? '';
+
+      if (!caseText) {
         if (formError) {
-          formError.textContent = 'Please record your problem first.';
+          formError.textContent = 'Please describe your problem.';
           formError.classList.add('visible');
         }
         return;
@@ -148,39 +313,16 @@ import Layout from '../layouts/Layout.astro';
       }
 
       try {
-        const { createCase, transcribeCase, patchCase } = await import('../data/index.js');
-
-        let caseData;
-
-        if (currentMode === 'typed') {
-          const payload = {
-            input_mode: 'typed' as const,
-            ...(caseText ? { case_text: caseText } : {}),
-            ...(providerName ? { provider_name: providerName } : {}),
-          };
-          const res = await createCase(payload);
-          caseData = res.data;
-        } else {
-          // 1. Create empty voice case
-          const createRes = await createCase({
-            input_mode: 'voice' as const,
-            ...(providerName ? { provider_name: providerName } : {}),
-          });
-          caseData = createRes.data;
-
-          // 2. Transcribe
-          const txRes = await transcribeCase(caseData.id, audioBlob!);
-          const transcript = txRes.data.transcript;
-
-          // 3. Patch with reviewed transcript → input_ready
-          const patchRes = await patchCase(caseData.id, { case_text: transcript });
-          caseData = patchRes.data;
-        }
-
-        window.location.href = `/cases/${caseData.id}`;
+        const { createCase } = await import('../data/index.js');
+        const res = await createCase({
+          input_mode: 'typed',
+          case_text: caseText,
+          ...(providerName ? { provider_name: providerName } : {}),
+        });
+        window.location.href = `/cases/${res.data.id}`;
       } catch (err) {
         if (formError) {
-          formError.textContent = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+          formError.textContent = err instanceof Error ? err.message : 'Something went wrong.';
           formError.classList.add('visible');
         }
         if (submitBtn) {

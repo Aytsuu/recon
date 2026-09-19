@@ -20,6 +20,9 @@ class CaseRepository(Protocol):
         problem_summary: str | None = None,
         attempted_resolutions: list[str] | None = None,
         desired_outcome: str | None = None,
+        support_email: str | None = None,
+        support_phone: str | None = None,
+        support_url: str | None = None,
     ) -> CaseData: ...
 
     def get_case(self, case_id: int) -> CaseData | None: ...

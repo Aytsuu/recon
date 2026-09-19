@@ -1,4 +1,4 @@
-from app.repositories.memory import InMemoryCaseRepository
+from app.repositories.protocol import CaseRepository
 from app.schemas.case import CaseData
 from app.schemas.clarification import ClarificationData
 from app.schemas.enums import CaseStatus, ClarificationStatus
@@ -10,7 +10,7 @@ from app.services.providers import lookup as provider_lookup
 def apply_extraction(
     case: CaseData,
     result: ExtractionResult,
-    repository: InMemoryCaseRepository,
+    repository: CaseRepository,
 ) -> CaseData:
     repository.update_case(
         case.id,
